@@ -965,10 +965,16 @@ class ForeignKey(RelatedField, Field):
         qs = self.rel.to._default_manager.using(using).filter(
                 **{self.rel.field_name: value}
              )
-        qs = qs.complex_filter(self.rel.limit_choices_to)
-        if not qs.exists():
-            raise exceptions.ValidationError(self.error_messages['invalid'] % {
-                'model': self.rel.to._meta.verbose_name, 'pk': value})
+        # This is a bad hack (look at in future)
+        if isinstance(qs, list):
+            # for proxy model let pass
+            pass
+        else:
+            # remove in future (remove tabs)
+            qs = qs.complex_filter(self.rel.limit_choices_to)
+            if not qs.exists():
+                raise exceptions.ValidationError(self.error_messages['invalid'] % {
+                    'model': self.rel.to._meta.verbose_name, 'pk': value})
 
     def get_attname(self):
         return '%s_id' % self.name
