@@ -23,7 +23,7 @@ these changes.
 * The :mod:`django.contrib.gis.db.backend` module will be removed in favor
   of the specific backends.
 
-* ``SMTPConnection`` will be removed in favor of a generic E-mail backend API.
+* ``SMTPConnection`` will be removed in favor of a generic Email backend API.
 
 * The many to many SQL generation functions on the database backends
   will be removed.
@@ -285,6 +285,9 @@ these changes.
 
 * The ``mimetype`` argument to :class:`~django.http.HttpResponse` ``__init__``
   will be removed (``content_type`` should be used instead).
+
+* The ``AUTH_PROFILE_MODULE`` setting, and the ``get_profile()`` method on
+  the User model, will be removed.
 
 2.0
 ---
