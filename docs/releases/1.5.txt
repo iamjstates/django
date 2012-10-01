@@ -103,9 +103,24 @@ associated with proxy models.
 
 New ``view`` variable in class-based views context
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 In all :doc:`generic class-based views </topics/class-based-views/index>`
 (or any class-based view inheriting from ``ContextMixin``), the context dictionary
 contains a ``view`` variable that points to the ``View`` instance.
+
+GeoDjango
+~~~~~~~~~
+
+* :class:`~django.contrib.gis.geos.LineString` and
+  :class:`~django.contrib.gis.geos.MultiLineString` GEOS objects now support the
+  :meth:`~django.contrib.gis.geos.GEOSGeometry.interpolate()` and
+  :meth:`~django.contrib.gis.geos.GEOSGeometry.project()` methods
+  (so-called linear referencing).
+
+* The wkb and hex properties of `GEOSGeometry` objects preserve the Z dimension.
+
+* Support for PostGIS 2.0 has been added and support for GDAL < 1.5 has been
+  dropped.
 
 Minor features
 ~~~~~~~~~~~~~~
@@ -145,6 +160,43 @@ Django 1.5 also includes several smaller improvements worth noting:
   :ref:`named URL patterns <naming-url-patterns>`. This allows you to reduce
   configuration duplication. More information can be found in the
   :func:`~django.contrib.auth.decorators.login_required` documentation.
+
+* Django now provides a mod_wsgi :doc:`auth handler
+  </howto/deployment/wsgi/apache-auth>`.
+
+* The :meth:`QuerySet.delete() <django.db.models.query.QuerySet.delete>`
+  and :meth:`Model.delete() <django.db.models.Model.delete()>` can now take
+  fast-path in some cases. The fast-path allows for less queries and less
+  objects fetched into memory. See :meth:`QuerySet.delete()
+  <django.db.models.query.QuerySet.delete>` for details.
+
+* An instance of :class:`~django.core.urlresolvers.ResolverMatch` is stored on
+  the request as ``resolver_match``.
+
+* By default, all logging messages reaching the `django` logger when
+  :setting:`DEBUG` is `True` are sent to the console (unless you redefine the
+  logger in your :setting:`LOGGING` setting).
+
+* :ref:`F() expressions <query-expressions>` now support comparison operations
+  and inversion, expanding the types of expressions that can be passed to the
+  database.
+
+* When using :class:`~django.template.RequestContext`, it is now possible to
+  look up permissions by using ``{% if 'someapp.someperm' in perms %}``
+  in templates.
+
+* It's not required any more to have ``404.html`` and ``500.html`` templates in
+  the root templates directory. Django will output some basic error messages for
+  both situations when those templates are not found. Of course, it's still
+  recommended as good practice to provide those templates in order to present
+  pretty error pages to the user.
+
+* :mod:`django.contrib.auth` provides a new signal that is emitted
+  whenever a user fails to login successfully. See
+  :data:`~django.contrib.auth.signals.user_login_failed`
+
+* The loaddata management command now supports an `ignorenonexistent` option to
+  ignore data for fields that no longer exist.
 
 Backwards incompatible changes in 1.5
 =====================================
@@ -369,8 +421,6 @@ on the form.
 
 Miscellaneous
 ~~~~~~~~~~~~~
-
-* GeoDjango dropped support for GDAL < 1.5
 
 * :func:`~django.utils.http.int_to_base36` properly raises a :exc:`TypeError`
   instead of :exc:`ValueError` for non-integer inputs.
