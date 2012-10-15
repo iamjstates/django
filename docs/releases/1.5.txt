@@ -177,10 +177,6 @@ Django 1.5 also includes several smaller improvements worth noting:
   :setting:`DEBUG` is `True` are sent to the console (unless you redefine the
   logger in your :setting:`LOGGING` setting).
 
-* :ref:`F() expressions <query-expressions>` now support comparison operations
-  and inversion, expanding the types of expressions that can be passed to the
-  database.
-
 * When using :class:`~django.template.RequestContext`, it is now possible to
   look up permissions by using ``{% if 'someapp.someperm' in perms %}``
   in templates.
@@ -197,6 +193,11 @@ Django 1.5 also includes several smaller improvements worth noting:
 
 * The loaddata management command now supports an `ignorenonexistent` option to
   ignore data for fields that no longer exist.
+
+* :meth:`~django.test.SimpleTestCase.assertXMLEqual` and
+  :meth:`~django.test.SimpleTestCase.assertXMLNotEqual` new assertions allow
+  you to test equality for XML content at a semantic level, without caring for
+  syntax differences (spaces, attribute order, etc.).
 
 Backwards incompatible changes in 1.5
 =====================================
@@ -422,6 +423,9 @@ on the form.
 Miscellaneous
 ~~~~~~~~~~~~~
 
+* :class:`django.forms.ModelMultipleChoiceField` now returns an empty
+  ``QuerySet`` as the empty value instead of an empty list.
+
 * :func:`~django.utils.http.int_to_base36` properly raises a :exc:`TypeError`
   instead of :exc:`ValueError` for non-integer inputs.
 
@@ -433,6 +437,16 @@ Miscellaneous
   them to be executeable change :setting:`FILE_UPLOAD_PERMISSIONS` to your
   needs. The new default value is `0666` (octal) and the current umask value
   is first masked out.
+
+* The :ref:`F() expressions <query-expressions>` supported bitwise operators by
+  ``&`` and ``|``. These operators are now available using ``.bitand()`` and
+  ``.bitor()`` instead. The removal of ``&`` and ``|`` was done to be consistent with
+  :ref:`Q() expressions <complex-lookups-with-q>` and ``QuerySet`` combining where
+  the operators are used as boolean AND and OR operators.
+
+* The :ttag:`csrf_token` template tag is no longer enclosed in a div. If you need
+  HTML validation against pre-HTML5 Strict DTDs, you should add a div around it
+  in your pages.
 
 Features deprecated in 1.5
 ==========================

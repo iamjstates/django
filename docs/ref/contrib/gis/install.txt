@@ -510,6 +510,7 @@ to build and install::
 Post-installation
 =================
 
+.. _spatialdb_template:
 .. _spatialdb_template91:
 
 Creating a spatial database with PostGIS 2.0 and PostgreSQL 9.1
@@ -522,6 +523,9 @@ spatial functionality::
     $ psql <db name>
     > CREATE EXTENSION postgis;
     > CREATE EXTENSION postgis_topology;
+
+No PostGIS topology functionalities are yet available from GeoDjango, so the
+creation of the ``postgis_topology`` extension is entirely optional.
 
 .. _spatialdb_template_earlier:
 
@@ -752,6 +756,21 @@ following command::
 Similarly, on Red Hat and CentOS systems::
 
     $ sudo yum install binutils
+
+PostgreSQL's createdb fails
+---------------------------
+
+When the PostgreSQL cluster uses a non-UTF8 encoding, the
+:file:`create_template_postgis-*.sh` script will fail when executing
+``createdb``::
+
+    createdb: database creation failed: ERROR:  new encoding (UTF8) is incompatible
+      with the encoding of the template database (SQL_ASCII)
+
+The `current workaround`__ is to re-create the cluster using UTF8 (back up any
+databases before dropping the cluster).
+
+__ http://jacobian.org/writing/pg-encoding-ubuntu/
 
 Platform-specific instructions
 ==============================
