@@ -84,6 +84,24 @@ For one-to-one relationships, both sides can be cached. For many-to-one
 relationships, only the single side of the relationship can be cached. This
 is particularly helpful in combination with ``prefetch_related``.
 
+Explicit support for streaming responses
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Before Django 1.5, it was possible to create a streaming response by passing
+an iterator to :class:`~django.http.HttpResponse`. But this was unreliable:
+any middleware that accessed the :attr:`~django.http.HttpResponse.content`
+attribute would consume the iterator prematurely.
+
+You can now explicitly generate a streaming response with the new
+:class:`~django.http.StreamingHttpResponse` class. This class exposes a
+:class:`~django.http.StreamingHttpResponse.streaming_content` attribute which
+is an iterator.
+
+Since :class:`~django.http.StreamingHttpResponse` does not have a ``content``
+attribute, middleware that need access to the response content must test for
+streaming responses and behave accordingly. See :ref:`response-middleware` for
+more information.
+
 ``{% verbatim %}`` template tag
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -244,6 +262,18 @@ For consistency with the design of the other generic views,
 :class:`~django.views.generic.base.TemplateView` no longer passes a ``params``
 dictionary into the context, instead passing the variables from the URLconf
 directly into the context.
+
+Non-form data in HTTP requests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:attr:`request.POST <django.http.HttpRequest.POST>` will no longer include data
+posted via HTTP requests with non form-specific content-types in the header.
+In prior versions, data posted with content-types other than
+``multipart/form-data`` or ``application/x-www-form-urlencoded`` would still
+end up represented in the :attr:`request.POST <django.http.HttpRequest.POST>`
+attribute. Developers wishing to access the raw POST data for these cases,
+should use the :attr:`request.body <django.http.HttpRequest.body>` attribute
+instead.
 
 OPTIONS, PUT and DELETE requests in the test client
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
