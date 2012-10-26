@@ -115,7 +115,6 @@ class Query(object):
         self.default_ordering = True
         self.standard_ordering = True
         self.ordering_aliases = []
-        self.select_fields = []
         self.related_select_fields = []
         self.dupe_avoidance = {}
         self.used_aliases = set()
@@ -124,6 +123,9 @@ class Query(object):
 
         # SQL-related attributes
         self.select = []
+        # For each to-be-selected field in self.select there must be a
+        # corresponding entry in self.select - git seems to need this.
+        self.select_fields = []
         self.tables = []    # Aliases in the order they are created.
         self.where = where()
         self.where_class = where
@@ -431,13 +433,9 @@ class Query(object):
 
     def has_results(self, using):
         q = self.clone()
+        q.clear_select_clause()
         q.add_extra({'a': 1}, None, None, None, None, None)
-        q.select = []
-        q.select_fields = []
-        q.default_cols = False
-        q.select_related = False
-        q.set_extra_mask(('a',))
-        q.set_aggregate_mask(())
+        q.set_extra_mask(['a'])
         q.clear_ordering(True)
         q.set_limits(high=1)
         compiler = q.get_compiler(using=using)
@@ -1625,6 +1623,17 @@ class Query(object):
         Typically, this means no limits or offsets have been put on the results.
         """
         return not self.low_mark and self.high_mark is None
+
+    def clear_select_clause(self):
+        """
+        Removes all fields from SELECT clause.
+        """
+        self.select = []
+        self.select_fields = []
+        self.default_cols = False
+        self.select_related = False
+        self.set_extra_mask(())
+        self.set_aggregate_mask(())
 
     def clear_select_fields(self):
         """

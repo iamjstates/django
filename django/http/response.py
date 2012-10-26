@@ -16,6 +16,7 @@ from django.http.cookie import SimpleCookie
 from django.utils import six, timezone
 from django.utils.encoding import force_bytes, iri_to_uri
 from django.utils.http import cookie_date
+from django.utils.six.moves import map
 
 
 class BadHeaderError(ValueError):
@@ -191,18 +192,33 @@ class HttpResponseBase(object):
 
     def make_bytes(self, value):
         """Turn a value into a bytestring encoded in the output charset."""
-        # For backwards compatibility, this method supports values that are
-        # unlikely to occur in real applications. It has grown complex and
-        # should be refactored. It also overlaps __next__. See #18796.
+        # Per PEP 3333, this response body must be bytes. To avoid returning
+        # an instance of a subclass, this function returns `bytes(value)`.
+        # This doesn't make a copy when `value` already contains bytes.
+
+        # If content is already encoded (eg. gzip), assume bytes.
         if self.has_header('Content-Encoding'):
-            if isinstance(value, int):
-                value = six.text_type(value)
-            if isinstance(value, six.text_type):
-                value = value.encode('ascii')
-            # force conversion to bytes in case chunk is a subclass
             return bytes(value)
-        else:
-            return force_bytes(value, self._charset)
+
+        # Handle string types -- we can't rely on force_bytes here because:
+        # - under Python 3 it attemps str conversion first
+        # - when self._charset != 'utf-8' it re-encodes the content
+        if isinstance(value, bytes):
+            return bytes(value)
+        if isinstance(value, six.text_type):
+            return bytes(value.encode(self._charset))
+
+        # Handle non-string types (#16494)
+        return force_bytes(value, self._charset)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        # Subclasses must define self._iterator for this function.
+        return self.make_bytes(next(self._iterator))
+
+    next = __next__             # Python 2 compatibility
 
     # These methods partially implement the file-like object interface.
     # See http://docs.python.org/lib/bltin-file-objects.html
@@ -246,8 +262,18 @@ class HttpResponse(HttpResponseBase):
     else:
         __str__ = serialize
 
+    def _consume_content(self):
+        # If the response was instantiated with an iterator, when its content
+        # is accessed, the iterator is going be exhausted and the content
+        # loaded in memory. At this point, it's better to abandon the original
+        # iterator and save the content for later reuse. This is a temporary
+        # solution. See the comment in __iter__ below for the long term plan.
+        if self._base_content_is_iter:
+            self.content = b''.join(self.make_bytes(e) for e in self._container)
+
     @property
     def content(self):
+        self._consume_content()
         return b''.join(self.make_bytes(e) for e in self._container)
 
     @content.setter
@@ -262,29 +288,28 @@ class HttpResponse(HttpResponseBase):
             self._base_content_is_iter = False
 
     def __iter__(self):
-        self._iterator = iter(self._container)
+        # Raise a deprecation warning only if the content wasn't consumed yet,
+        # because the response may be intended to be streamed.
+        # Once the deprecation completes, iterators should be consumed upon
+        # assignment rather than upon access. The _consume_content method
+        # should be removed. See #6527.
+        if self._base_content_is_iter:
+            warnings.warn(
+                'Creating streaming responses with `HttpResponse` is '
+                'deprecated. Use `StreamingHttpResponse` instead '
+                'if you need the streaming behavior.',
+                PendingDeprecationWarning, stacklevel=2)
+        if not hasattr(self, '_iterator'):
+            self._iterator = iter(self._container)
         return self
 
-    def __next__(self):
-        chunk = next(self._iterator)
-        if isinstance(chunk, int):
-            chunk = six.text_type(chunk)
-        if isinstance(chunk, six.text_type):
-            chunk = chunk.encode(self._charset)
-        # force conversion to bytes in case chunk is a subclass
-        return bytes(chunk)
-
-    next = __next__             # Python 2 compatibility
-
     def write(self, content):
-        if self._base_content_is_iter:
-            raise Exception("This %s instance is not writable" % self.__class__.__name__)
+        self._consume_content()
         self._container.append(content)
 
     def tell(self):
-        if self._base_content_is_iter:
-            raise Exception("This %s instance cannot tell its position" % self.__class__.__name__)
-        return sum([len(chunk) for chunk in self])
+        self._consume_content()
+        return len(self.content)
 
 
 class StreamingHttpResponse(HttpResponseBase):
@@ -311,7 +336,7 @@ class StreamingHttpResponse(HttpResponseBase):
 
     @property
     def streaming_content(self):
-        return self._iterator
+        return map(self.make_bytes, self._iterator)
 
     @streaming_content.setter
     def streaming_content(self, value):
@@ -319,14 +344,6 @@ class StreamingHttpResponse(HttpResponseBase):
         self._iterator = iter(value)
         if hasattr(value, 'close'):
             self._closable_objects.append(value)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        return self.make_bytes(next(self._iterator))
-
-    next = __next__             # Python 2 compatibility
 
 
 class CompatibleStreamingHttpResponse(StreamingHttpResponse):
@@ -389,6 +406,7 @@ class HttpResponseNotModified(HttpResponse):
         if value:
             raise AttributeError("You cannot set content to a 304 (Not Modified) response")
         self._container = []
+        self._base_content_is_iter = False
 
 
 class HttpResponseBadRequest(HttpResponse):
