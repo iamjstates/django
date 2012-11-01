@@ -6,7 +6,7 @@ from django.db.backends.util import truncate_name
 from django.db.models.constants import LOOKUP_SEP
 from django.db.models.query_utils import select_related_descend
 from django.db.models.sql.constants import (SINGLE, MULTI, ORDER_DIR,
-        GET_ITERATOR_CHUNK_SIZE)
+        GET_ITERATOR_CHUNK_SIZE, REUSE_ALL, SelectInfo)
 from django.db.models.sql.datastructures import EmptyResultSet
 from django.db.models.sql.expressions import SQLEvaluator
 from django.db.models.sql.query import get_order_dir, Query
@@ -188,7 +188,7 @@ class SQLCompiler(object):
             col_aliases = set()
         if self.query.select:
             only_load = self.deferred_to_columns()
-            for col in self.query.select:
+            for col, _ in self.query.select:
                 if isinstance(col, (list, tuple)):
                     alias, column = col
                     table = self.query.alias_map[alias].table_name
@@ -233,7 +233,7 @@ class SQLCompiler(object):
             for alias, aggregate in self.query.aggregate_select.items()
         ])
 
-        for table, col in self.query.related_select_cols:
+        for (table, col), _ in self.query.related_select_cols:
             r = '%s.%s' % (qn(table), qn(col))
             if with_aliases and col in col_aliases:
                 c_alias = 'Col%d' % len(col_aliases)
@@ -457,7 +457,7 @@ class SQLCompiler(object):
         if not alias:
             alias = self.query.get_initial_alias()
         field, target, opts, joins, _, _ = self.query.setup_joins(pieces,
-                opts, alias, False)
+                opts, alias, REUSE_ALL)
         # We will later on need to promote those joins that were added to the
         # query afresh above.
         joins_to_promote = [j for j in joins if self.query.alias_refcount[j] < 2]
@@ -557,8 +557,9 @@ class SQLCompiler(object):
             for extra_select, extra_params in six.itervalues(self.query.extra_select):
                 extra_selects.append(extra_select)
                 params.extend(extra_params)
-            cols = (group_by + self.query.select +
-                self.query.related_select_cols + extra_selects)
+            select_cols = [s.col for s in self.query.select]
+            related_select_cols = [s.col for s in self.query.related_select_cols]
+            cols = (group_by + select_cols + related_select_cols + extra_selects)
             seen = set()
             for col in cols:
                 if col in seen:
@@ -573,8 +574,7 @@ class SQLCompiler(object):
         return result, params
 
     def fill_related_selections(self, opts=None, root_alias=None, cur_depth=1,
-            used=None, requested=None, restricted=None, nullable=None,
-            dupe_set=None, avoid_set=None):
+            requested=None, restricted=None, nullable=None):
         """
         Fill in the information needed for a select_related query. The current
         depth is measured as the number of connections away from the root model
@@ -589,14 +589,6 @@ class SQLCompiler(object):
             opts = self.query.get_meta()
             root_alias = self.query.get_initial_alias()
             self.query.related_select_cols = []
-            self.query.related_select_fields = []
-        if not used:
-            used = set()
-        if dupe_set is None:
-            dupe_set = set()
-        if avoid_set is None:
-            avoid_set = set()
-        orig_dupe_set = dupe_set
         only_load = self.query.get_loaded_field_names()
 
         # Setup for the case when only particular related fields should be
@@ -616,12 +608,6 @@ class SQLCompiler(object):
             if not select_related_descend(f, restricted, requested,
                                           only_load.get(field_model)):
                 continue
-            # The "avoid" set is aliases we want to avoid just for this
-            # particular branch of the recursion. They aren't permanently
-            # forbidden from reuse in the related selection tables (which is
-            # what "used" specifies).
-            avoid = avoid_set.copy()
-            dupe_set = orig_dupe_set.copy()
             table = f.rel.to._meta.db_table
             promote = nullable or f.null
             if model:
@@ -637,44 +623,28 @@ class SQLCompiler(object):
                         int_opts = int_model._meta
                         continue
                     lhs_col = int_opts.parents[int_model].column
-                    dedupe = lhs_col in opts.duplicate_targets
-                    if dedupe:
-                        avoid.update(self.query.dupe_avoidance.get((id(opts), lhs_col),
-                                ()))
-                        dupe_set.add((opts, lhs_col))
                     int_opts = int_model._meta
                     alias = self.query.join((alias, int_opts.db_table, lhs_col,
-                            int_opts.pk.column), exclusions=used,
+                            int_opts.pk.column),
                             promote=promote)
                     alias_chain.append(alias)
-                    for (dupe_opts, dupe_col) in dupe_set:
-                        self.query.update_dupe_avoidance(dupe_opts, dupe_col, alias)
             else:
                 alias = root_alias
 
-            dedupe = f.column in opts.duplicate_targets
-            if dupe_set or dedupe:
-                avoid.update(self.query.dupe_avoidance.get((id(opts), f.column), ()))
-                if dedupe:
-                    dupe_set.add((opts, f.column))
-
             alias = self.query.join((alias, table, f.column,
                     f.rel.get_related_field().column),
-                    exclusions=used.union(avoid), promote=promote)
-            used.add(alias)
+                    promote=promote)
             columns, aliases = self.get_default_columns(start_alias=alias,
                     opts=f.rel.to._meta, as_pairs=True)
-            self.query.related_select_cols.extend(columns)
-            self.query.related_select_fields.extend(f.rel.to._meta.fields)
+            self.query.related_select_cols.extend(
+                SelectInfo(col, field) for col, field in zip(columns, f.rel.to._meta.fields))
             if restricted:
                 next = requested.get(f.name, {})
             else:
                 next = False
             new_nullable = f.null or promote
-            for dupe_opts, dupe_col in dupe_set:
-                self.query.update_dupe_avoidance(dupe_opts, dupe_col, alias)
             self.fill_related_selections(f.rel.to._meta, alias, cur_depth + 1,
-                    used, next, restricted, new_nullable, dupe_set, avoid)
+                    next, restricted, new_nullable)
 
         if restricted:
             related_fields = [
@@ -686,14 +656,8 @@ class SQLCompiler(object):
                 if not select_related_descend(f, restricted, requested,
                                               only_load.get(model), reverse=True):
                     continue
-                # The "avoid" set is aliases we want to avoid just for this
-                # particular branch of the recursion. They aren't permanently
-                # forbidden from reuse in the related selection tables (which is
-                # what "used" specifies).
-                avoid = avoid_set.copy()
-                dupe_set = orig_dupe_set.copy()
-                table = model._meta.db_table
 
+                table = model._meta.db_table
                 int_opts = opts
                 alias = root_alias
                 alias_chain = []
@@ -708,34 +672,20 @@ class SQLCompiler(object):
                             int_opts = int_model._meta
                             continue
                         lhs_col = int_opts.parents[int_model].column
-                        dedupe = lhs_col in opts.duplicate_targets
-                        if dedupe:
-                            avoid.update((self.query.dupe_avoidance.get(id(opts), lhs_col),
-                                ()))
-                            dupe_set.add((opts, lhs_col))
                         int_opts = int_model._meta
                         alias = self.query.join(
                             (alias, int_opts.db_table, lhs_col, int_opts.pk.column),
-                            exclusions=used, promote=True, reuse=used
+                            promote=True,
                         )
                         alias_chain.append(alias)
-                        for dupe_opts, dupe_col in dupe_set:
-                            self.query.update_dupe_avoidance(dupe_opts, dupe_col, alias)
-                    dedupe = f.column in opts.duplicate_targets
-                    if dupe_set or dedupe:
-                        avoid.update(self.query.dupe_avoidance.get((id(opts), f.column), ()))
-                        if dedupe:
-                            dupe_set.add((opts, f.column))
                 alias = self.query.join(
                     (alias, table, f.rel.get_related_field().column, f.column),
-                    exclusions=used.union(avoid),
                     promote=True
                 )
-                used.add(alias)
                 columns, aliases = self.get_default_columns(start_alias=alias,
                     opts=model._meta, as_pairs=True, local_only=True)
-                self.query.related_select_cols.extend(columns)
-                self.query.related_select_fields.extend(model._meta.fields)
+                self.query.related_select_cols.extend(
+                    SelectInfo(col, field) for col, field in zip(columns, model._meta.fields))
 
                 next = requested.get(f.related_query_name(), {})
                 # Use True here because we are looking at the _reverse_ side of
@@ -743,7 +693,7 @@ class SQLCompiler(object):
                 new_nullable = True
 
                 self.fill_related_selections(model._meta, table, cur_depth+1,
-                    used, next, restricted, new_nullable)
+                    next, restricted, new_nullable)
 
     def deferred_to_columns(self):
         """
@@ -772,7 +722,7 @@ class SQLCompiler(object):
                 if resolve_columns:
                     if fields is None:
                         # We only set this up here because
-                        # related_select_fields isn't populated until
+                        # related_select_cols isn't populated until
                         # execute_sql() has been called.
 
                         # We also include types of fields of related models that
@@ -782,11 +732,11 @@ class SQLCompiler(object):
 
                         # This code duplicates the logic for the order of fields
                         # found in get_columns(). It would be nice to clean this up.
-                        if self.query.select_fields:
-                            fields = self.query.select_fields
+                        if self.query.select:
+                            fields = [f.field for f in self.query.select]
                         else:
                             fields = self.query.model._meta.fields
-                        fields = fields + self.query.related_select_fields
+                        fields = fields + [f.field for f in self.query.related_select_cols]
 
                         # If the field was deferred, exclude it from being passed
                         # into `resolve_columns` because it wasn't selected.
