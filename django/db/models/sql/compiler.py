@@ -240,7 +240,7 @@ class SQLCompiler(object):
         return result
 
     def get_default_columns(self, with_aliases=False, col_aliases=None,
-            start_alias=None, opts=None, as_pairs=False, local_only=False):
+            start_alias=None, opts=None, as_pairs=False, from_parent=None):
         """
         Computes the default columns for selecting every field in the base
         model. Will sometimes be called to pull in related models (e.g. via
@@ -265,7 +265,8 @@ class SQLCompiler(object):
         if start_alias:
             seen = {None: start_alias}
         for field, model in opts.get_fields_with_model():
-            if local_only and model is not None:
+            if from_parent and model is not None and issubclass(from_parent, model):
+                # Avoid loading data for already loaded parents.
                 continue
             if start_alias:
                 try:
@@ -686,11 +687,13 @@ class SQLCompiler(object):
                     (alias, table, f.rel.get_related_field().column, f.column),
                     promote=True
                 )
+                from_parent = (opts.model if issubclass(model, opts.model)
+                               else None)
                 columns, aliases = self.get_default_columns(start_alias=alias,
-                    opts=model._meta, as_pairs=True, local_only=True)
+                    opts=model._meta, as_pairs=True, from_parent=from_parent)
                 self.query.related_select_cols.extend(
-                    SelectInfo(col, field) for col, field in zip(columns, model._meta.fields))
-
+                    SelectInfo(col, field) for col, field
+                    in zip(columns, model._meta.fields))
                 next = requested.get(f.related_query_name(), {})
                 # Use True here because we are looking at the _reverse_ side of
                 # the relation, which is always nullable.
@@ -856,6 +859,8 @@ class SQLInsertCompiler(SQLCompiler):
                 [self.placeholder(field, v) for field, v in zip(fields, val)]
                 for val in values
             ]
+            # Oracle Spatial needs to remove some values due to #10888
+            params = self.connection.ops.modify_insert_params(placeholders, params)
         if self.return_id and self.connection.features.can_return_id_from_insert:
             params = params[0]
             col = "%s.%s" % (qn(opts.db_table), qn(opts.pk.column))
