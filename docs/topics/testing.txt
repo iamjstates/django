@@ -1186,10 +1186,13 @@ Normal Python unit test classes extend a base class of
 
 .. _testcase_hierarchy_diagram:
 
-.. figure:: _images/django_unittest_classes_hierarchy.png
+.. figure:: _images/django_unittest_classes_hierarchy.*
    :alt: Hierarchy of Django unit testing classes (TestCase subclasses)
+   :width: 508
+   :height: 391
 
-   Hierarchy of Django unit testing classes
+Regardless of the version of Python you're using, if you've installed
+:mod:`unittest2`, :mod:`django.utils.unittest` will point to that library.
 
 TestCase
 ^^^^^^^^
@@ -1770,6 +1773,11 @@ your test suite.
 	via an explicit ``order_by()`` call on the queryset prior to
 	comparison.
 
+    .. versionchanged:: 1.6
+        The method now checks for undefined order and raises ``ValueError``
+        if undefined order is spotted. The ordering is seen as undefined if
+        the given ``qs`` isn't ordered and the comparison is against more
+        than one ordered values.
 
 .. method:: TestCase.assertNumQueries(num, func, *args, **kwargs)
 
