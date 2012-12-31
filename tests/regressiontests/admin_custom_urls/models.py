@@ -56,9 +56,13 @@ class Person(models.Model):
 
 class PersonAdmin(admin.ModelAdmin):
 
-    def response_post_save(self, request, obj):
+    def response_post_save_add(self, request, obj):
         return HttpResponseRedirect(
             reverse('admin:admin_custom_urls_person_history', args=[obj.pk]))
+
+    def response_post_save_change(self, request, obj):
+        return HttpResponseRedirect(
+            reverse('admin:admin_custom_urls_person_delete', args=[obj.pk]))
 
 
 class Car(models.Model):
@@ -71,18 +75,6 @@ class CarAdmin(admin.ModelAdmin):
             request, obj, post_url_continue=reverse('admin:admin_custom_urls_car_history', args=[obj.pk]))
 
 
-class CarDeprecated(models.Model):
-    """ This class must be removed in Django 1.6 """
-    name = models.CharField(max_length=20)
-
-class CarDeprecatedAdmin(admin.ModelAdmin):
-    """ This class must be removed in Django 1.6 """
-    def response_add(self, request, obj, post_url_continue=None):
-        return super(CarDeprecatedAdmin, self).response_add(
-            request, obj, post_url_continue='../%s/history/')
-
-
 admin.site.register(Action, ActionAdmin)
 admin.site.register(Person, PersonAdmin)
 admin.site.register(Car, CarAdmin)
-admin.site.register(CarDeprecated, CarDeprecatedAdmin)

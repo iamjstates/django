@@ -179,8 +179,8 @@ Authentication middleware
 .. class:: AuthenticationMiddleware
 
 Adds the ``user`` attribute, representing the currently-logged-in user, to
-every incoming ``HttpRequest`` object. See :doc:`Authentication in Web requests
-</topics/auth>`.
+every incoming ``HttpRequest`` object. See :ref:`Authentication in Web requests
+<auth-web-requests>`.
 
 CSRF protection middleware
 --------------------------
@@ -221,8 +221,5 @@ X-Frame-Options middleware
    :synopsis: Clickjacking protection
 
 .. class:: XFrameOptionsMiddleware
-
-.. versionadded:: 1.4
-   ``XFrameOptionsMiddleware`` was added.
 
 Simple :doc:`clickjacking protection via the X-Frame-Options header </ref/clickjacking/>`.

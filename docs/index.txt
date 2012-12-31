@@ -222,7 +222,7 @@ assist you in the development of applications for multiple languages and world
 regions:
 
 * :doc:`Internationalization <topics/i18n/index>`
-* :doc:`"Local flavor" <ref/contrib/localflavor>`
+* :doc:`"Local flavor" <topics/localflavor>`
 
 Python compatibility
 ====================
@@ -246,7 +246,7 @@ Common Web application tools
 Django offers multiple tools commonly needed in the development of Web
 applications:
 
-* :doc:`Authentication <topics/auth>`
+* :doc:`Authentication <topics/auth/index>`
 * :doc:`Caching <topics/cache>`
 * :doc:`Logging <topics/logging>`
 * :doc:`Sending emails <topics/email>`
@@ -267,7 +267,6 @@ Learn about some other core functionalities of the Django framework:
 
 * :doc:`Conditional content processing <topics/conditional-view-processing>`
 * :doc:`Content types and generic relations <ref/contrib/contenttypes>`
-* :doc:`Databrowse <ref/contrib/databrowse>`
 * :doc:`Flatpages <ref/contrib/flatpages>`
 * :doc:`Redirects <ref/contrib/redirects>`
 * :doc:`Signals <topics/signals>`

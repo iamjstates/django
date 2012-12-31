@@ -549,6 +549,8 @@ model's ``clean()`` hook.
 Model formsets
 ==============
 
+.. class:: models.BaseModelFormSet
+
 Like :doc:`regular formsets </topics/forms/formsets>`, Django provides a couple
 of enhanced formset classes that make it easy to work with Django models. Let's
 reuse the ``Author`` model from above::
@@ -622,8 +624,6 @@ exclude::
 
 Providing initial values
 ------------------------
-
-.. versionadded:: 1.4
 
 As with regular formsets, it's possible to :ref:`specify initial data
 <formsets-initial-data>` for forms in the formset by specifying an ``initial``

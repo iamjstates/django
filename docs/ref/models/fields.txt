@@ -12,8 +12,8 @@ This document contains all the gory details about all the `field options`_ and
 
 .. seealso::
 
-    If the built-in fields don't do the trick, you can try
-    :mod:`django.contrib.localflavor`, which contains assorted pieces of code
+    If the built-in fields don't do the trick, you can try :doc:`localflavor
+    </topics/localflavor>`, which contains assorted pieces of code
     that are useful for particular countries or cultures. Also, you can easily
     :doc:`write your own custom model fields </howto/custom-model-fields>`.
 
@@ -547,8 +547,7 @@ Also has one optional argument:
     Optional. A storage object, which handles the storage and retrieval of your
     files. See :doc:`/topics/files` for details on how to provide this object.
 
-The default form widget for this field is a
-:class:`~django.forms.widgets.FileInput`.
+The default form widget for this field is a :class:`~django.forms.FileInput`.
 
 Using a :class:`FileField` or an :class:`ImageField` (see below) in a model
 takes a few steps:
@@ -590,7 +589,7 @@ topic guide.
     saved.
 
 The uploaded file's relative URL can be obtained using the
-:attr:`~django.db.models.fields.FileField.url` attribute. Internally,
+:attr:`~django.db.models.FileField.url` attribute. Internally,
 this calls the :meth:`~django.core.files.storage.Storage.url` method of the
 underlying :class:`~django.core.files.storage.Storage` class.
 
@@ -804,8 +803,6 @@ for this field is a :class:`~django.forms.TextInput`.
 -------------------------
 
 .. class:: GenericIPAddressField([protocol=both, unpack_ipv4=False, **options])
-
-.. versionadded:: 1.4
 
 An IPv4 or IPv6 address, in string format (e.g. ``192.0.2.30`` or
 ``2a02:42fe::4``). The default form widget for this field is a
