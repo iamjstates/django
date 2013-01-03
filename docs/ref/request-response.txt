@@ -263,7 +263,7 @@ Methods
 .. method:: HttpRequest.get_signed_cookie(key, default=RAISE_ERROR, salt='', max_age=None)
 
    Returns a cookie value for a signed cookie, or raises a
-   :class:`~django.core.signing.BadSignature` exception if the signature is
+   ``django.core.signing.BadSignature`` exception if the signature is
    no longer valid. If you provide the ``default`` argument the exception
    will be suppressed and that default value will be returned instead.
 
@@ -789,6 +789,8 @@ types of HTTP responses. Like ``HttpResponse``, these subclasses live in
     method, Django will treat it as emulating a
     :class:`~django.template.response.SimpleTemplateResponse`, and the
     ``render`` method must itself return a valid response object.
+
+.. _httpresponse-streaming:
 
 StreamingHttpResponse objects
 =============================
