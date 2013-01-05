@@ -492,6 +492,16 @@ class BaseEmailBackendTests(object):
         self.assertEqual(message.get('from'), "tester")
         self.assertEqual(message.get('to'), "django")
 
+    def test_close_connection(self):
+        """
+        Test that connection can be closed (even when not explicitely opened)
+        """
+        conn = mail.get_connection(username='', password='')
+        try:
+            conn.close()
+        except Exception as e:
+            self.fail("close() unexpectedly raised an exception: %s" % e)
+
 
 class LocmemBackendTests(BaseEmailBackendTests, TestCase):
     email_backend = 'django.core.mail.backends.locmem.EmailBackend'
@@ -659,9 +669,9 @@ class FakeSMTPServer(smtpd.SMTPServer, threading.Thread):
         asyncore.close_all()
 
     def stop(self):
-        assert self.active
-        self.active = False
-        self.join()
+        if self.active:
+            self.active = False
+            self.join()
 
 
 class SMTPBackendTests(BaseEmailBackendTests, TestCase):
@@ -715,3 +725,16 @@ class SMTPBackendTests(BaseEmailBackendTests, TestCase):
         backend = smtp.EmailBackend(username='', password='')
         self.assertEqual(backend.username, '')
         self.assertEqual(backend.password, '')
+
+    def test_server_stopped(self):
+        """
+        Test that closing the backend while the SMTP server is stopped doesn't
+        raise an exception.
+        """
+        backend = smtp.EmailBackend(username='', password='')
+        backend.open()
+        self.server.stop()
+        try:
+            backend.close()
+        except Exception as e:
+            self.fail("close() unexpectedly raised an exception: %s" % e)
