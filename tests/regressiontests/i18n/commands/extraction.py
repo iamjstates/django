@@ -6,7 +6,7 @@ import re
 import shutil
 
 from django.core import management
-from django.test import TestCase
+from django.test import SimpleTestCase
 from django.utils.encoding import force_text
 from django.utils._os import upath
 from django.utils.six import StringIO
@@ -14,7 +14,7 @@ from django.utils.six import StringIO
 
 LOCALE='de'
 
-class ExtractorTests(TestCase):
+class ExtractorTests(SimpleTestCase):
 
     PO_FILE='locale/%s/LC_MESSAGES/django.po' % LOCALE
 
@@ -293,3 +293,64 @@ class NoLocationExtractorTests(ExtractorTests):
         with open(self.PO_FILE, 'r') as fp:
             po_contents = force_text(fp.read())
             self.assertTrue('#: templates/test.html:55' in po_contents)
+
+
+class KeepPotFileExtractorTests(ExtractorTests):
+
+    POT_FILE='locale/django.pot'
+
+    def setUp(self):
+        super(KeepPotFileExtractorTests, self).setUp()
+
+    def tearDown(self):
+        super(KeepPotFileExtractorTests, self).tearDown()
+        os.chdir(self.test_dir)
+        try:
+            os.unlink(self.POT_FILE)
+        except OSError:
+            pass
+        os.chdir(self._cwd)
+
+    def test_keep_pot_disabled_by_default(self):
+        os.chdir(self.test_dir)
+        management.call_command('makemessages', locale=LOCALE, verbosity=0)
+        self.assertFalse(os.path.exists(self.POT_FILE))
+
+    def test_keep_pot_explicitly_disabled(self):
+        os.chdir(self.test_dir)
+        management.call_command('makemessages', locale=LOCALE, verbosity=0,
+                                keep_pot=False)
+        self.assertFalse(os.path.exists(self.POT_FILE))
+
+    def test_keep_pot_enabled(self):
+        os.chdir(self.test_dir)
+        management.call_command('makemessages', locale=LOCALE, verbosity=0,
+                                keep_pot=True)
+        self.assertTrue(os.path.exists(self.POT_FILE))
+
+
+class MultipleLocaleExtractionTests(ExtractorTests):
+    PO_FILE_PT = 'locale/pt/LC_MESSAGES/django.po'
+    PO_FILE_DE = 'locale/de/LC_MESSAGES/django.po'
+    LOCALES = ['pt', 'de', 'ch']
+
+    def tearDown(self):
+        os.chdir(self.test_dir)
+        for locale in self.LOCALES:
+            try:
+                self._rmrf('locale/%s' % locale)
+            except OSError:
+                pass
+        os.chdir(self._cwd)
+
+    def test_multiple_locales(self):
+        os.chdir(self.test_dir)
+        management.call_command('makemessages', locale=['pt','de'], verbosity=0)
+        self.assertTrue(os.path.exists(self.PO_FILE_PT))
+        self.assertTrue(os.path.exists(self.PO_FILE_DE))
+
+    def test_comma_separated_locales(self):
+        os.chdir(self.test_dir)
+        management.call_command('makemessages', locale='pt,de,ch', verbosity=0)
+        self.assertTrue(os.path.exists(self.PO_FILE_PT))
+        self.assertTrue(os.path.exists(self.PO_FILE_DE))
