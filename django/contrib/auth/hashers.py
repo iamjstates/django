@@ -12,6 +12,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.crypto import (
     pbkdf2, constant_time_compare, get_random_string)
+from django.utils.module_loading import import_by_path
 from django.utils.translation import ugettext_noop as _
 
 
@@ -84,13 +85,7 @@ def load_hashers(password_hashers=None):
     if not password_hashers:
         password_hashers = settings.PASSWORD_HASHERS
     for backend in password_hashers:
-        try:
-            mod_path, cls_name = backend.rsplit('.', 1)
-            mod = importlib.import_module(mod_path)
-            hasher_cls = getattr(mod, cls_name)
-        except (AttributeError, ImportError, ValueError):
-            raise ImproperlyConfigured("hasher not found: %s" % backend)
-        hasher = hasher_cls()
+        hasher = import_by_path(backend)()
         if not getattr(hasher, 'algorithm'):
             raise ImproperlyConfigured("hasher doesn't specify an "
                                        "algorithm name: %s" % backend)
@@ -132,7 +127,8 @@ def identify_hasher(encoded):
     get_hasher() to return hasher. Raises ValueError if
     algorithm cannot be identified, or if hasher is not loaded.
     """
-    if len(encoded) == 32 and '$' not in encoded:
+    if ((len(encoded) == 32 and '$' not in encoded) or
+            (len(encoded) == 37 and encoded.startswith('md5$$'))):
         algorithm = 'unsalted_md5'
     else:
         algorithm = encoded.split('$', 1)[0]
@@ -372,6 +368,8 @@ class UnsaltedMD5PasswordHasher(BasePasswordHasher):
         return hashlib.md5(force_bytes(password)).hexdigest()
 
     def verify(self, password, encoded):
+        if len(encoded) == 37 and encoded.startswith('md5$$'):
+            encoded = encoded[5:]
         encoded_2 = self.encode(password, '')
         return constant_time_compare(encoded, encoded_2)
 

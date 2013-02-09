@@ -17,11 +17,27 @@ deprecation process for some features`_.
 What's new in Django 1.6
 ========================
 
+Simplified default project and app templates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The default templates used by :djadmin:`startproject` and :djadmin:`startapp`
+have been simplified and modernized. The :doc:`admin
+</ref/contrib/admin/index>` is now enabled by default in new projects; the
+:doc:`sites </ref/contrib/sites>` framework no longer is. :ref:`Language
+detection <how-django-discovers-language-preference>` and :ref:`clickjacking
+prevention <clickjacking-prevention>` are turned on.
+
+If the default templates don't suit your tastes, you can use :ref:`custom
+project and app templates <custom-app-and-project-templates>`.
+
 Minor features
 ~~~~~~~~~~~~~~
 
 * Authentication backends can raise ``PermissionDenied`` to immediately fail
   the authentication chain.
+
+* The HttpOnly flag can be set on the CSRF cookie with
+  :setting:`CSRF_COOKIE_HTTPONLY`.
 
 * The ``assertQuerysetEqual()`` now checks for undefined order and raises
   ``ValueError`` if undefined order is spotted. The order is seen as
@@ -38,6 +54,15 @@ Minor features
 * The ``number`` argument for :ref:`lazy plural translations
   <lazy-plural-translations>` can be provided at translation time rather than
   at definition time.
+
+* For custom management commands: Verification of the presence of valid
+  settings in commands that ask for it by using the
+  :attr:`~django.core.management.BaseCommand.can_import_settings` internal
+  option is now performed independently from handling of the locale that
+  should be active during the execution of the command. The latter can now be
+  influenced by the new
+  :attr:`~django.core.management.BaseCommand.leave_locale_alone` internal
+  option. See :ref:`management-commands-and-locales` for more details.
 
 Backwards incompatible changes in 1.6
 =====================================
@@ -105,3 +130,9 @@ from your settings.
 
 If you defined your own form widgets and defined the ``_has_changed`` method
 on a widget, you should now define this method on the form field itself.
+
+``module_name`` model meta attribute
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``Model._meta.module_name`` was renamed to ``model_name``. Despite being a
+private API, it will go through a regular deprecation path.
