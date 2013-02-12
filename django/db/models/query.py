@@ -500,7 +500,7 @@ class QuerySet(object):
             "Cannot change a query once a slice has been taken."
         obj = self._clone()
         obj.query.set_limits(high=1)
-        obj.query.clear_ordering()
+        obj.query.clear_ordering(force_empty=True)
         obj.query.add_ordering('%s%s' % (direction, order_by))
         return obj.get()
 
@@ -539,7 +539,7 @@ class QuerySet(object):
         # Disable non-supported fields.
         del_query.query.select_for_update = False
         del_query.query.select_related = False
-        del_query.query.clear_ordering()
+        del_query.query.clear_ordering(force_empty=True)
 
         collector = Collector(using=del_query.db)
         collector.collect(del_query)
@@ -793,7 +793,7 @@ class QuerySet(object):
         assert self.query.can_filter(), \
                 "Cannot reorder a query once a slice has been taken."
         obj = self._clone()
-        obj.query.clear_ordering()
+        obj.query.clear_ordering(force_empty=False)
         obj.query.add_ordering(*field_names)
         return obj
 
