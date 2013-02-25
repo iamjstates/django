@@ -24,7 +24,7 @@ from .models import (Annotation, Article, Author, Celebrity, Child, Cover,
     Node, ObjectA, ObjectB, ObjectC, CategoryItem, SimpleCategory,
     SpecialCategory, OneToOneCategory, NullableName, ProxyCategory,
     SingleObject, RelatedObject, ModelA, ModelD, Responsibility, Job,
-    JobResponsibilities, BaseA)
+    JobResponsibilities, BaseA, Identifier, Program, Channel)
 
 
 class BaseQuerysetTest(TestCase):
@@ -52,8 +52,8 @@ class Queries1Tests(BaseQuerysetTest):
 
         # Create these out of order so that sorting by 'id' will be different to sorting
         # by 'info'. Helps detect some problems later.
-        self.e2 = ExtraInfo.objects.create(info='e2', note=n2)
-        e1 = ExtraInfo.objects.create(info='e1', note=self.n1)
+        self.e2 = ExtraInfo.objects.create(info='e2', note=n2, value=41)
+        e1 = ExtraInfo.objects.create(info='e1', note=self.n1, value=42)
 
         self.a1 = Author.objects.create(name='a1', num=1001, extra=e1)
         self.a2 = Author.objects.create(name='a2', num=2002, extra=e1)
@@ -550,37 +550,37 @@ class Queries1Tests(BaseQuerysetTest):
     def test_tickets_6180_6203(self):
         # Dates with limits and/or counts
         self.assertEqual(Item.objects.count(), 4)
-        self.assertEqual(Item.objects.dates('created', 'month').count(), 1)
-        self.assertEqual(Item.objects.dates('created', 'day').count(), 2)
-        self.assertEqual(len(Item.objects.dates('created', 'day')), 2)
-        self.assertEqual(Item.objects.dates('created', 'day')[0], datetime.datetime(2007, 12, 19, 0, 0))
+        self.assertEqual(Item.objects.datetimes('created', 'month').count(), 1)
+        self.assertEqual(Item.objects.datetimes('created', 'day').count(), 2)
+        self.assertEqual(len(Item.objects.datetimes('created', 'day')), 2)
+        self.assertEqual(Item.objects.datetimes('created', 'day')[0], datetime.datetime(2007, 12, 19, 0, 0))
 
     def test_tickets_7087_12242(self):
         # Dates with extra select columns
         self.assertQuerysetEqual(
-            Item.objects.dates('created', 'day').extra(select={'a': 1}),
+            Item.objects.datetimes('created', 'day').extra(select={'a': 1}),
             ['datetime.datetime(2007, 12, 19, 0, 0)', 'datetime.datetime(2007, 12, 20, 0, 0)']
         )
         self.assertQuerysetEqual(
-            Item.objects.extra(select={'a': 1}).dates('created', 'day'),
+            Item.objects.extra(select={'a': 1}).datetimes('created', 'day'),
             ['datetime.datetime(2007, 12, 19, 0, 0)', 'datetime.datetime(2007, 12, 20, 0, 0)']
         )
 
         name="one"
         self.assertQuerysetEqual(
-            Item.objects.dates('created', 'day').extra(where=['name=%s'], params=[name]),
+            Item.objects.datetimes('created', 'day').extra(where=['name=%s'], params=[name]),
             ['datetime.datetime(2007, 12, 19, 0, 0)']
         )
 
         self.assertQuerysetEqual(
-            Item.objects.extra(where=['name=%s'], params=[name]).dates('created', 'day'),
+            Item.objects.extra(where=['name=%s'], params=[name]).datetimes('created', 'day'),
             ['datetime.datetime(2007, 12, 19, 0, 0)']
         )
 
     def test_ticket7155(self):
         # Nullable dates
         self.assertQuerysetEqual(
-            Item.objects.dates('modified', 'day'),
+            Item.objects.datetimes('modified', 'day'),
             ['datetime.datetime(2007, 12, 19, 0, 0)']
         )
 
@@ -699,7 +699,7 @@ class Queries1Tests(BaseQuerysetTest):
         )
 
         # Pickling of DateQuerySets used to fail
-        qs = Item.objects.dates('created', 'month')
+        qs = Item.objects.datetimes('created', 'month')
         _ = pickle.loads(pickle.dumps(qs))
 
     def test_ticket9997(self):
@@ -1106,6 +1106,13 @@ class Queries1Tests(BaseQuerysetTest):
         self.assertTrue(str(q3.query).count('LEFT OUTER JOIN') == 1)
         self.assertTrue(str(q3.query).count('INNER JOIN') == 0)
 
+    def test_ticket19672(self):
+        self.assertQuerysetEqual(
+            Report.objects.filter(Q(creator__isnull=False) &
+                                  ~Q(creator__extra__value=41)),
+            ['<Report: r1>']
+        )
+
 
 class Queries2Tests(TestCase):
     def setUp(self):
@@ -1235,8 +1242,8 @@ class Queries3Tests(BaseQuerysetTest):
         # field
         self.assertRaisesMessage(
             AssertionError,
-            "'name' isn't a DateField.",
-            Item.objects.dates, 'name', 'month'
+            "'name' isn't a DateTimeField.",
+            Item.objects.datetimes, 'name', 'month'
         )
 
 class Queries4Tests(BaseQuerysetTest):
@@ -2612,3 +2619,22 @@ class DisjunctionPromotionTests(TestCase):
         qs = BaseA.objects.filter(Q(a__f1=F('c__f1')) | (Q(pk=1) & Q(pk=2)))
         self.assertEqual(str(qs.query).count('LEFT OUTER JOIN'), 2)
         self.assertEqual(str(qs.query).count('INNER JOIN'), 0)
+
+
+class ManyToManyExcludeTest(TestCase):
+    def test_exclude_many_to_many(self):
+        Identifier.objects.create(name='extra')
+        program = Program.objects.create(identifier=Identifier.objects.create(name='program'))
+        channel = Channel.objects.create(identifier=Identifier.objects.create(name='channel'))
+        channel.programs.add(program)
+
+        # channel contains 'program1', so all Identifiers except that one
+        # should be returned
+        self.assertQuerysetEqual(
+            Identifier.objects.exclude(program__channel=channel).order_by('name'),
+            ['<Identifier: channel>', '<Identifier: extra>']
+        )
+        self.assertQuerysetEqual(
+            Identifier.objects.exclude(program__channel=None).order_by('name'),
+            ['<Identifier: program>']
+        )

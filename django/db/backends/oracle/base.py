@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 
 import datetime
 import decimal
+import re
 import sys
 import warnings
 
@@ -47,11 +48,11 @@ except ImportError as e:
 from django.conf import settings
 from django.db import utils
 from django.db.backends import *
-from django.db.backends.signals import connection_created
 from django.db.backends.oracle.client import DatabaseClient
 from django.db.backends.oracle.creation import DatabaseCreation
 from django.db.backends.oracle.introspection import DatabaseIntrospection
 from django.utils.encoding import force_bytes, force_text
+from django.utils.functional import cached_property
 from django.utils import six
 from django.utils import timezone
 
@@ -128,12 +129,12 @@ WHEN (new.%(col_name)s IS NULL)
         """
 
     def date_extract_sql(self, lookup_type, field_name):
-        # http://download-east.oracle.com/docs/cd/B10501_01/server.920/a96540/functions42a.htm#1017163
         if lookup_type == 'week_day':
             # TO_CHAR(field, 'D') returns an integer from 1-7, where 1=Sunday.
             return "TO_CHAR(%s, 'D')" % field_name
         else:
-            return "EXTRACT(%s FROM %s)" % (lookup_type, field_name)
+            # http://docs.oracle.com/cd/B19306_01/server.102/b14200/functions050.htm
+            return "EXTRACT(%s FROM %s)" % (lookup_type.upper(), field_name)
 
     def date_interval_sql(self, sql, connector, timedelta):
         """
@@ -150,13 +151,58 @@ WHEN (new.%(col_name)s IS NULL)
                 timedelta.microseconds, day_precision)
 
     def date_trunc_sql(self, lookup_type, field_name):
-        # Oracle uses TRUNC() for both dates and numbers.
-        # http://download-east.oracle.com/docs/cd/B10501_01/server.920/a96540/functions155a.htm#SQLRF06151
-        if lookup_type == 'day':
-            sql = 'TRUNC(%s)' % field_name
+        # http://docs.oracle.com/cd/B19306_01/server.102/b14200/functions230.htm#i1002084
+        if lookup_type in ('year', 'month'):
+            return "TRUNC(%s, '%s')" % (field_name, lookup_type.upper())
         else:
-            sql = "TRUNC(%s, '%s')" % (field_name, lookup_type)
-        return sql
+            return "TRUNC(%s)" % field_name
+
+    # Oracle crashes with "ORA-03113: end-of-file on communication channel"
+    # if the time zone name is passed in parameter. Use interpolation instead.
+    # https://groups.google.com/forum/#!msg/django-developers/zwQju7hbG78/9l934yelwfsJ
+    # This regexp matches all time zone names from the zoneinfo database.
+    _tzname_re = re.compile(r'^[\w/:+-]+$')
+
+    def _convert_field_to_tz(self, field_name, tzname):
+        if not self._tzname_re.match(tzname):
+            raise ValueError("Invalid time zone name: %s" % tzname)
+        # Convert from UTC to local time, returning TIMESTAMP WITH TIME ZONE.
+        result = "(FROM_TZ(%s, '0:00') AT TIME ZONE '%s')" % (field_name, tzname)
+        # Extracting from a TIMESTAMP WITH TIME ZONE ignore the time zone.
+        # Convert to a DATETIME, which is called DATE by Oracle. There's no
+        # built-in function to do that; the easiest is to go through a string.
+        result = "TO_CHAR(%s, 'YYYY-MM-DD HH24:MI:SS')" % result
+        result = "TO_DATE(%s, 'YYYY-MM-DD HH24:MI:SS')" % result
+        # Re-convert to a TIMESTAMP because EXTRACT only handles the date part
+        # on DATE values, even though they actually store the time part.
+        return "CAST(%s AS TIMESTAMP)" % result
+
+    def datetime_extract_sql(self, lookup_type, field_name, tzname):
+        if settings.USE_TZ:
+            field_name = self._convert_field_to_tz(field_name, tzname)
+        if lookup_type == 'week_day':
+            # TO_CHAR(field, 'D') returns an integer from 1-7, where 1=Sunday.
+            sql = "TO_CHAR(%s, 'D')" % field_name
+        else:
+            # http://docs.oracle.com/cd/B19306_01/server.102/b14200/functions050.htm
+            sql = "EXTRACT(%s FROM %s)" % (lookup_type.upper(), field_name)
+        return sql, []
+
+    def datetime_trunc_sql(self, lookup_type, field_name, tzname):
+        if settings.USE_TZ:
+            field_name = self._convert_field_to_tz(field_name, tzname)
+        # http://docs.oracle.com/cd/B19306_01/server.102/b14200/functions230.htm#i1002084
+        if lookup_type in ('year', 'month'):
+            sql = "TRUNC(%s, '%s')" % (field_name, lookup_type.upper())
+        elif lookup_type == 'day':
+            sql = "TRUNC(%s)" % field_name
+        elif lookup_type == 'hour':
+            sql = "TRUNC(%s, 'HH24')" % field_name
+        elif lookup_type == 'minute':
+            sql = "TRUNC(%s, 'MI')" % field_name
+        else:
+            sql = field_name    # Cast to DATE removes sub-second precision.
+        return sql, []
 
     def convert_values(self, value, field):
         if isinstance(value, Database.LOB):
@@ -224,7 +270,8 @@ WHEN (new.%(col_name)s IS NULL)
         if six.PY3:
             return cursor.statement
         else:
-            return cursor.statement.decode("utf-8")
+            query = cursor.statement
+            return query if isinstance(query, unicode) else query.decode("utf-8")
 
     def last_insert_id(self, cursor, table_name, pk_name):
         sq_name = self._get_sequence_name(table_name)
@@ -457,7 +504,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
     def __init__(self, *args, **kwargs):
         super(DatabaseWrapper, self).__init__(*args, **kwargs)
 
-        self.oracle_version = None
         self.features = DatabaseFeatures(self)
         use_returning_into = self.settings_dict["OPTIONS"].get('use_returning_into', True)
         self.features.can_return_id_from_insert = use_returning_into
@@ -475,9 +521,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         self.cursor().execute('SET CONSTRAINTS ALL IMMEDIATE')
         self.cursor().execute('SET CONSTRAINTS ALL DEFERRED')
 
-    def _valid_connection(self):
-        return self.connection is not None
-
     def _connect_string(self):
         settings_dict = self.settings_dict
         if not settings_dict['HOST'].strip():
@@ -491,8 +534,8 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         return "%s/%s@%s" % (settings_dict['USER'],
                              settings_dict['PASSWORD'], dsn)
 
-    def create_cursor(self, conn):
-        return FormatStylePlaceholderCursor(conn)
+    def create_cursor(self):
+        return FormatStylePlaceholderCursor(self.connection)
 
     def get_connection_params(self):
         conn_params = self.settings_dict['OPTIONS'].copy()
@@ -505,7 +548,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         return Database.connect(conn_string, **conn_params)
 
     def init_connection_state(self):
-        cursor = self.create_cursor(self.connection)
+        cursor = self.create_cursor()
         # Set the territory first. The territory overrides NLS_DATE_FORMAT
         # and NLS_TIMESTAMP_FORMAT to the territory default. When all of
         # these are set in single statement it isn't clear what is supposed
@@ -526,7 +569,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             # This check is performed only once per DatabaseWrapper
             # instance per thread, since subsequent connections will use
             # the same settings.
-            cursor = self.create_cursor(self.connection)
+            cursor = self.create_cursor()
             try:
                 cursor.execute("SELECT 1 FROM DUAL WHERE DUMMY %s"
                                % self._standard_operators['contains'],
@@ -537,32 +580,21 @@ class DatabaseWrapper(BaseDatabaseWrapper):
                 self.operators = self._standard_operators
             cursor.close()
 
-        try:
-            self.oracle_version = int(self.connection.version.split('.')[0])
-            # There's no way for the DatabaseOperations class to know the
-            # currently active Oracle version, so we do some setups here.
-            # TODO: Multi-db support will need a better solution (a way to
-            # communicate the current version).
-            if self.oracle_version <= 9:
-                self.ops.regex_lookup = self.ops.regex_lookup_9
-            else:
-                self.ops.regex_lookup = self.ops.regex_lookup_10
-        except ValueError:
-            pass
+        # There's no way for the DatabaseOperations class to know the
+        # currently active Oracle version, so we do some setups here.
+        # TODO: Multi-db support will need a better solution (a way to
+        # communicate the current version).
+        if self.oracle_version is not None and self.oracle_version <= 9:
+            self.ops.regex_lookup = self.ops.regex_lookup_9
+        else:
+            self.ops.regex_lookup = self.ops.regex_lookup_10
+
         try:
             self.connection.stmtcachesize = 20
         except:
             # Django docs specify cx_Oracle version 4.3.1 or higher, but
             # stmtcachesize is available only in 4.3.2 and up.
             pass
-
-    def _cursor(self):
-        if not self._valid_connection():
-            conn_params = self.get_connection_params()
-            self.connection = self.get_new_connection(conn_params)
-            self.init_connection_state()
-            connection_created.send(sender=self.__class__, connection=self)
-        return self.create_cursor(self.connection)
 
     # Oracle doesn't support savepoint commits.  Ignore them.
     def _savepoint_commit(self, sid):
@@ -589,6 +621,15 @@ class DatabaseWrapper(BaseDatabaseWrapper):
                    and x.code == 2091 and 'ORA-02291' in x.message:
                     six.reraise(utils.IntegrityError, utils.IntegrityError(*tuple(e.args)), sys.exc_info()[2])
                 six.reraise(utils.DatabaseError, utils.DatabaseError(*tuple(e.args)), sys.exc_info()[2])
+
+    @cached_property
+    def oracle_version(self):
+        with self.temporary_connection():
+            version = self.connection.version
+        try:
+            return int(version.split('.')[0])
+        except ValueError:
+            return None
 
 
 class OracleParam(object):

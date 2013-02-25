@@ -122,6 +122,10 @@ class TestInline(TestCase):
         response = self.client.get('/admin/admin_inlines/holder4/add/')
         self.assertContains(response, '<p class="help">Awesome stacked help text is awesome.</p>', 4)
         self.assertContains(response, '<img src="/static/admin/img/icon-unknown.gif" class="help help-tooltip" width="10" height="10" alt="(Awesome tabular help text is awesome.)" title="Awesome tabular help text is awesome." />', 1)
+        # ReadOnly fields
+        response = self.client.get('/admin/admin_inlines/capofamiglia/add/')
+        self.assertContains(response, '<img src="/static/admin/img/icon-unknown.gif" class="help help-tooltip" width="10" height="10" alt="(Help text for ReadOnlyInline)" title="Help text for ReadOnlyInline" />', 1)
+
 
     def test_non_related_name_inline(self):
         """
@@ -546,15 +550,7 @@ class SeleniumFirefoxTests(AdminSeleniumWebDriverTestCase):
         self.selenium.find_element_by_name('profile_set-2-last_name').send_keys('2 last name 2')
 
         self.selenium.find_element_by_xpath('//input[@value="Save"]').click()
-
-        try:
-            # Wait for the next page to be loaded.
-            self.wait_loaded_tag('body')
-        except TimeoutException:
-            # IE7 occasionnally returns an error "Internet Explorer cannot
-            # display the webpage" and doesn't load the next page. We just
-            # ignore it.
-            pass
+        self.wait_page_loaded()
 
         # Check that the objects have been created in the database
         self.assertEqual(ProfileCollection.objects.all().count(), 1)

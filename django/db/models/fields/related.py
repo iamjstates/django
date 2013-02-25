@@ -1,6 +1,6 @@
 from operator import attrgetter
 
-from django.db import connection, router
+from django.db import connection, connections, router
 from django.db.backends import util
 from django.db.models import signals, get_model
 from django.db.models.fields import (AutoField, Field, IntegerField,
@@ -496,7 +496,8 @@ class ForeignRelatedObjectsDescriptor(object):
                 except (AttributeError, KeyError):
                     db = self._db or router.db_for_read(self.model, instance=self.instance)
                     qs = super(RelatedManager, self).get_query_set().using(db).filter(**self.core_filters)
-                    if getattr(self.instance, attname) is None:
+                    val = getattr(self.instance, attname)
+                    if val is None or val == '' and connections[db].features.interprets_empty_strings_as_nulls:
                         return qs.none()
                     qs._known_related_objects = {rel_field: {self.instance.pk: self.instance}}
                     return qs
@@ -903,6 +904,9 @@ class ReverseManyRelatedObjectsDescriptor(object):
             raise AttributeError("Cannot set values on a ManyToManyField which specifies an intermediary model.  Use %s.%s's Manager instead." % (opts.app_label, opts.object_name))
 
         manager = self.__get__(instance)
+        # clear() can change expected output of 'value' queryset, we force evaluation
+        # of queryset before clear; ticket #19816
+        value = tuple(value)
         manager.clear()
         manager.add(*value)
 
@@ -981,9 +985,10 @@ class ForeignKey(RelatedField, Field):
     }
     description = _("Foreign Key (type determined by related field)")
 
-    def __init__(self, to, to_field=None, rel_class=ManyToOneRel, **kwargs):
+    def __init__(self, to, to_field=None, rel_class=ManyToOneRel,
+                 db_constraint=True, **kwargs):
         try:
-            to_name = to._meta.model_name
+            to._meta.model_name
         except AttributeError:  # to._meta doesn't exist, so it must be RECURSIVE_RELATIONSHIP_CONSTANT
             assert isinstance(to, six.string_types), "%s(%r) is invalid. First parameter to ForeignKey must be either a model, a model name, or the string %r" % (self.__class__.__name__, to, RECURSIVE_RELATIONSHIP_CONSTANT)
         else:
@@ -997,13 +1002,14 @@ class ForeignKey(RelatedField, Field):
         if 'db_index' not in kwargs:
             kwargs['db_index'] = True
 
+        self.db_constraint = db_constraint
         kwargs['rel'] = rel_class(to, to_field,
             related_name=kwargs.pop('related_name', None),
             limit_choices_to=kwargs.pop('limit_choices_to', None),
             parent_link=kwargs.pop('parent_link', False),
             on_delete=kwargs.pop('on_delete', CASCADE),
         )
-        Field.__init__(self, **kwargs)
+        super(ForeignKey, self).__init__(**kwargs)
 
     def get_path_info(self):
         """

@@ -1103,6 +1103,46 @@ class AdminViewPermissionsTest(TestCase):
             self.assertContains(response, 'login-form')
             self.client.get('/test_admin/admin/logout/')
 
+    def testHistoryView(self):
+        """History view should restrict access."""
+
+        # add user shoud not be able to view the list of article or change any of them
+        self.client.get('/test_admin/admin/')
+        self.client.post('/test_admin/admin/', self.adduser_login)
+        response = self.client.get('/test_admin/admin/admin_views/article/1/history/')
+        self.assertEqual(response.status_code, 403)
+        self.client.get('/test_admin/admin/logout/')
+
+        # change user can view all items and edit them
+        self.client.get('/test_admin/admin/')
+        self.client.post('/test_admin/admin/', self.changeuser_login)
+        response = self.client.get('/test_admin/admin/admin_views/article/1/history/')
+        self.assertEqual(response.status_code, 200)
+
+        # Test redirection when using row-level change permissions. Refs #11513.
+        RowLevelChangePermissionModel.objects.create(id=1, name="odd id")
+        RowLevelChangePermissionModel.objects.create(id=2, name="even id")
+        for login_dict in [self.super_login, self.changeuser_login, self.adduser_login, self.deleteuser_login]:
+            self.client.post('/test_admin/admin/', login_dict)
+            response = self.client.get('/test_admin/admin/admin_views/rowlevelchangepermissionmodel/1/history/')
+            self.assertEqual(response.status_code, 403)
+
+            response = self.client.get('/test_admin/admin/admin_views/rowlevelchangepermissionmodel/2/history/')
+            self.assertEqual(response.status_code, 200)
+
+            self.client.get('/test_admin/admin/logout/')
+
+        for login_dict in [self.joepublic_login, self.no_username_login]:
+            self.client.post('/test_admin/admin/', login_dict)
+            response = self.client.get('/test_admin/admin/admin_views/rowlevelchangepermissionmodel/1/history/')
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, 'login-form')
+            response = self.client.get('/test_admin/admin/admin_views/rowlevelchangepermissionmodel/2/history/')
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, 'login-form')
+
+            self.client.get('/test_admin/admin/logout/')
+
     def testConditionallyShowAddSectionLink(self):
         """
         The foreign key widget should only show the "add related" button if the
@@ -2497,6 +2537,34 @@ class AdminCustomQuerysetTest(TestCase):
             else:
                 self.assertNotContains(response, 'Primary key = %s' % i)
 
+    def test_changelist_view_count_queries(self):
+        #create 2 Person objects
+        Person.objects.create(name='person1', gender=1)
+        Person.objects.create(name='person2', gender=2)
+
+        # 4 queries are expected: 1 for the session, 1 for the user,
+        # 1 for the count and 1 for the objects on the page
+        with self.assertNumQueries(4):
+            resp = self.client.get('/test_admin/admin/admin_views/person/')
+            self.assertEqual(resp.context['selection_note'], '0 of 2 selected')
+            self.assertEqual(resp.context['selection_note_all'], 'All 2 selected')
+        with self.assertNumQueries(4):
+            extra = {'q': 'not_in_name'}
+            resp = self.client.get('/test_admin/admin/admin_views/person/', extra)
+            self.assertEqual(resp.context['selection_note'], '0 of 0 selected')
+            self.assertEqual(resp.context['selection_note_all'], 'All 0 selected')
+        with self.assertNumQueries(4):
+            extra = {'q': 'person'}
+            resp = self.client.get('/test_admin/admin/admin_views/person/', extra)
+            self.assertEqual(resp.context['selection_note'], '0 of 2 selected')
+            self.assertEqual(resp.context['selection_note_all'], 'All 2 selected')
+        # here one more count(*) query will run, because filters were applied
+        with self.assertNumQueries(5):
+            extra = {'gender__exact': '1'}
+            resp = self.client.get('/test_admin/admin/admin_views/person/', extra)
+            self.assertEqual(resp.context['selection_note'], '0 of 1 selected')
+            self.assertEqual(resp.context['selection_note_all'], '1 selected')
+
     def test_change_view(self):
         for i in self.pks:
             response = self.client.get('/test_admin/admin/admin_views/emptymodel/%s/' % i)
@@ -3155,12 +3223,12 @@ class PrePopulatedTest(TestCase):
 
 
 @override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',))
-class SeleniumPrePopulatedFirefoxTests(AdminSeleniumWebDriverTestCase):
+class SeleniumAdminViewsFirefoxTests(AdminSeleniumWebDriverTestCase):
     webdriver_class = 'selenium.webdriver.firefox.webdriver.WebDriver'
     urls = "regressiontests.admin_views.urls"
     fixtures = ['admin-views-users.xml']
 
-    def test_basic(self):
+    def test_prepopulated_fields(self):
         """
         Ensure that the JavaScript-automated prepopulated fields work with the
         main form and with stacked and tabular inlines.
@@ -3222,16 +3290,7 @@ class SeleniumPrePopulatedFirefoxTests(AdminSeleniumWebDriverTestCase):
 
         # Save and check that everything is properly stored in the database
         self.selenium.find_element_by_xpath('//input[@value="Save"]').click()
-
-        try:
-            # Wait for the next page to be loaded.
-            self.wait_loaded_tag('body')
-        except TimeoutException:
-            # IE7 occasionnally returns an error "Internet Explorer cannot
-            # display the webpage" and doesn't load the next page. We just
-            # ignore it.
-            pass
-
+        self.wait_page_loaded()
         self.assertEqual(MainPrepopulated.objects.all().count(), 1)
         MainPrepopulated.objects.get(
             name=' this is the mAin nÀMë and it\'s awεšome',
@@ -3270,12 +3329,28 @@ class SeleniumPrePopulatedFirefoxTests(AdminSeleniumWebDriverTestCase):
             slug2='option-one-tabular-inline-ignored-characters',
         )
 
+    def test_collapsible_fieldset(self):
+        """
+        Test that the 'collapse' class in fieldsets definition allows to
+        show/hide the appropriate field section.
+        """
+        self.admin_login(username='super', password='secret', login_url='/test_admin/admin/')
+        self.selenium.get('%s%s' % (self.live_server_url,
+            '/test_admin/admin/admin_views/article/add/'))
+        self.assertFalse(self.selenium.find_element_by_id('id_title').is_displayed())
+        self.selenium.find_elements_by_link_text('Show')[0].click()
+        self.assertTrue(self.selenium.find_element_by_id('id_title').is_displayed())
+        self.assertEqual(
+            self.selenium.find_element_by_id('fieldsetcollapser0').text,
+            "Hide"
+        )
 
-class SeleniumPrePopulatedChromeTests(SeleniumPrePopulatedFirefoxTests):
+
+class SeleniumAdminViewsChromeTests(SeleniumAdminViewsFirefoxTests):
     webdriver_class = 'selenium.webdriver.chrome.webdriver.WebDriver'
 
 
-class SeleniumPrePopulatedIETests(SeleniumPrePopulatedFirefoxTests):
+class SeleniumAdminViewsIETests(SeleniumAdminViewsFirefoxTests):
     webdriver_class = 'selenium.webdriver.ie.webdriver.WebDriver'
 
 

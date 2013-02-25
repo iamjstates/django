@@ -233,9 +233,9 @@ class BaseModelForm(BaseForm):
                  initial=None, error_class=ErrorList, label_suffix=':',
                  empty_permitted=False, instance=None):
         opts = self._meta
+        if opts.model is None:
+            raise ValueError('ModelForm has no model class specified.')
         if instance is None:
-            if opts.model is None:
-                raise ValueError('ModelForm has no model class specified.')
             # if we didn't get an instance, instantiate a new one
             self.instance = opts.model()
             object_data = {}
@@ -512,6 +512,8 @@ class BaseModelFormSet(BaseFormSet):
                     form.save_m2m()
             self.save_m2m = save_m2m
         return self.save_existing_objects(commit) + self.save_new_objects(commit)
+
+    save.alters_data = True
 
     def clean(self):
         self.validate_unique()
@@ -915,7 +917,8 @@ class ModelChoiceIterator(object):
                 yield self.choice(obj)
 
     def __len__(self):
-        return len(self.queryset)
+        return len(self.queryset) +\
+                    (1 if self.field.empty_label is not None else 0)
 
     def choice(self, obj):
         return (self.field.prepare_value(obj), self.field.label_from_instance(obj))

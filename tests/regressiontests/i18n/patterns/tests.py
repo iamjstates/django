@@ -19,7 +19,7 @@ from django.utils import translation
     TEMPLATE_DIRS=(
         os.path.join(os.path.dirname(upath(__file__)), 'templates'),
     ),
-    LANGUAGE_CODE='en',
+    LANGUAGE_CODE='en-us',
     LANGUAGES=(
         ('nl', 'Dutch'),
         ('en', 'English'),
@@ -170,6 +170,34 @@ class URLRedirectTests(URLTestCaseBase):
 
         response = self.client.get(response['location'])
         self.assertEqual(response.status_code, 200)
+
+    def test_pl_pl_redirect(self):
+        # language from outside of the supported LANGUAGES list
+        response = self.client.get('/account/register/', HTTP_ACCEPT_LANGUAGE='pl-pl')
+        self.assertRedirects(response, '/en/account/register/')
+
+        response = self.client.get(response['location'])
+        self.assertEqual(response.status_code, 200)
+
+
+class URLVaryAcceptLanguageTests(URLTestCaseBase):
+    """
+    Tests that 'Accept-Language' is not added to the Vary header when using
+    prefixed URLs. 
+    """
+    def test_no_prefix_response(self):
+        response = self.client.get('/not-prefixed/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get('Vary'), 'Accept-Language')
+
+    def test_en_redirect(self):
+        response = self.client.get('/account/register/', HTTP_ACCEPT_LANGUAGE='en')
+        self.assertRedirects(response, '/en/account/register/')
+        self.assertFalse(response.get('Vary'))
+
+        response = self.client.get(response['location'])
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.get('Vary'))
 
 
 class URLRedirectWithoutTrailingSlashTests(URLTestCaseBase):

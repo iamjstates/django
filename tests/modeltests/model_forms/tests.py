@@ -133,6 +133,9 @@ class ShortCategory(forms.ModelForm):
     slug = forms.CharField(max_length=5)
     url = forms.CharField(max_length=3)
 
+    class Meta:
+        model = Category
+
 class ImprovedArticleForm(forms.ModelForm):
     class Meta:
         model = ImprovedArticle
@@ -276,6 +279,19 @@ class ModelFormBaseTest(TestCase):
             list(BadForm.base_fields),
             ['headline', 'slug', 'pub_date', 'writer', 'article', 'categories', 'status']
         )
+
+    def test_invalid_meta_model(self):
+        class InvalidModelForm(forms.ModelForm):
+            class Meta:
+                pass  # no model
+
+        # Can't create new form
+        with self.assertRaises(ValueError):
+            f = InvalidModelForm()
+
+        # Even if you provide a model instance
+        with self.assertRaises(ValueError):
+            f = InvalidModelForm(instance=Category)
 
     def test_subcategory_form(self):
         class SubCategoryForm(BaseCategoryForm):
@@ -973,6 +989,7 @@ class OldFormForXTests(TestCase):
             (c2.pk, "It's a test"),
             (c3.pk, 'Third'),
             (c4.pk, 'Fourth')])
+        self.assertEqual(5, len(f.choices))
         with self.assertRaises(ValidationError):
             f.clean('')
         with self.assertRaises(ValidationError):
@@ -1133,7 +1150,7 @@ class OldFormForXTests(TestCase):
 <option value="%s">Joe Better</option>
 <option value="%s">Mike Royko</option>
 </select></p>
-<p><label for="id_age">Age:</label> <input type="text" name="age" id="id_age" /></p>''' % (w_woodward.pk, w_bernstein.pk, bw.pk, w_royko.pk))
+<p><label for="id_age">Age:</label> <input type="number" name="age" id="id_age" min="0" /></p>''' % (w_woodward.pk, w_bernstein.pk, bw.pk, w_royko.pk))
 
         data = {
             'writer': six.text_type(w_woodward.pk),
@@ -1151,7 +1168,7 @@ class OldFormForXTests(TestCase):
 <option value="%s">Joe Better</option>
 <option value="%s">Mike Royko</option>
 </select></p>
-<p><label for="id_age">Age:</label> <input type="text" name="age" value="65" id="id_age" /></p>''' % (w_woodward.pk, w_bernstein.pk, bw.pk, w_royko.pk))
+<p><label for="id_age">Age:</label> <input type="number" name="age" value="65" id="id_age" min="0" /></p>''' % (w_woodward.pk, w_bernstein.pk, bw.pk, w_royko.pk))
 
     def test_file_field(self):
         # Test conditions when files is either not given or empty.

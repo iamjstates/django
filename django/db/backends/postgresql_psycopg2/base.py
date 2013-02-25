@@ -8,13 +8,13 @@ import sys
 
 from django.db import utils
 from django.db.backends import *
-from django.db.backends.signals import connection_created
 from django.db.backends.postgresql_psycopg2.operations import DatabaseOperations
 from django.db.backends.postgresql_psycopg2.client import DatabaseClient
 from django.db.backends.postgresql_psycopg2.creation import DatabaseCreation
 from django.db.backends.postgresql_psycopg2.version import get_version
 from django.db.backends.postgresql_psycopg2.introspection import DatabaseIntrospection
 from django.utils.encoding import force_str
+from django.utils.functional import cached_property
 from django.utils.safestring import SafeText, SafeBytes
 from django.utils import six
 from django.utils.timezone import utc
@@ -122,7 +122,6 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         self.creation = DatabaseCreation(self)
         self.introspection = DatabaseIntrospection(self)
         self.validation = BaseDatabaseValidation(self)
-        self._pg_version = None
 
     def check_constraints(self, table_names=None):
         """
@@ -151,11 +150,10 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             )
             raise
 
-    def _get_pg_version(self):
-        if self._pg_version is None:
-            self._pg_version = get_version(self.connection)
-        return self._pg_version
-    pg_version = property(_get_pg_version)
+    @cached_property
+    def pg_version(self):
+        with self.temporary_connection():
+            return get_version(self.connection)
 
     def get_connection_params(self):
         settings_dict = self.settings_dict
@@ -203,14 +201,8 @@ class DatabaseWrapper(BaseDatabaseWrapper):
                 self.connection.cursor().execute(
                         self.ops.set_time_zone_sql(), [tz])
         self.connection.set_isolation_level(self.isolation_level)
-        self._get_pg_version()
 
-    def _cursor(self):
-        if self.connection is None:
-            conn_params = self.get_connection_params()
-            self.connection = self.get_new_connection(conn_params)
-            self.init_connection_state()
-            connection_created.send(sender=self.__class__, connection=self)
+    def create_cursor(self):
         cursor = self.connection.cursor()
         cursor.tzinfo_factory = utc_tzinfo_factory if settings.USE_TZ else None
         return CursorWrapper(cursor)

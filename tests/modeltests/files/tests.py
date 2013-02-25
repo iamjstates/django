@@ -10,6 +10,7 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.utils import unittest
+from django.utils.six import StringIO
 
 from .models import Storage, temp_storage, temp_storage_location
 
@@ -101,6 +102,32 @@ class FileStorageTests(TestCase):
         obj4 = Storage()
         obj4.random.save("random_file", ContentFile("random content"))
         self.assertTrue(obj4.random.name.endswith("/random_file"))
+
+    def test_file_object(self):
+        # Create sample file
+        temp_storage.save('tests/example.txt', ContentFile('some content'))
+
+        # Load it as python file object
+        with open(temp_storage.path('tests/example.txt')) as file_obj:
+            # Save it using storage and read its content
+            temp_storage.save('tests/file_obj', file_obj)
+        self.assertTrue(temp_storage.exists('tests/file_obj'))
+        with temp_storage.open('tests/file_obj') as f:
+            self.assertEqual(f.read(), b'some content')
+
+
+    def test_stringio(self):
+        # Test passing StringIO instance as content argument to save
+        output = StringIO()
+        output.write('content')
+        output.seek(0)
+
+        # Save it and read written file
+        temp_storage.save('tests/stringio', output)
+        self.assertTrue(temp_storage.exists('tests/stringio'))
+        with temp_storage.open('tests/stringio') as f:
+            self.assertEqual(f.read(), b'content')
+
 
 
 class FileTests(unittest.TestCase):

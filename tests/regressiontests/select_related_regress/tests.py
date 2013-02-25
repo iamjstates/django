@@ -5,7 +5,7 @@ from django.utils import six
 
 from .models import (Building, Child, Device, Port, Item, Country, Connection,
     ClientStatus, State, Client, SpecialClient, TUser, Person, Student,
-    Organizer, Class, Enrollment)
+    Organizer, Class, Enrollment, Hen, Chick)
 
 
 class SelectRelatedRegressTests(TestCase):
@@ -139,3 +139,37 @@ class SelectRelatedRegressTests(TestCase):
         self.assertEqual(troy.name, 'Troy Buswell')
         self.assertEqual(troy.value, 42)
         self.assertEqual(troy.state.name, 'Western Australia')
+
+    def test_null_join_promotion(self):
+        australia = Country.objects.create(name='Australia')
+        active = ClientStatus.objects.create(name='active')
+
+        wa = State.objects.create(name="Western Australia", country=australia)
+        bob = Client.objects.create(name='Bob', status=active)
+        jack = Client.objects.create(name='Jack', status=active, state=wa)
+        qs = Client.objects.filter(state=wa).select_related('state')
+        with self.assertNumQueries(1):
+            self.assertEqual(list(qs), [jack])
+            self.assertEqual(qs[0].state, wa)
+            # The select_related join wasn't promoted as there was already an
+            # existing (even if trimmed) inner join to state.
+            self.assertFalse('LEFT OUTER' in str(qs.query))
+        qs = Client.objects.select_related('state').order_by('name')
+        with self.assertNumQueries(1):
+            self.assertEqual(list(qs), [bob, jack])
+            self.assertIs(qs[0].state, None)
+            self.assertEqual(qs[1].state, wa)
+            # The select_related join was promoted as there is already an
+            # existing join.
+            self.assertTrue('LEFT OUTER' in str(qs.query))
+
+    def test_regression_19870(self):
+        """
+        Regression for #19870
+
+        """
+        hen = Hen.objects.create(name='Hen')
+        chick = Chick.objects.create(name='Chick', mother=hen)
+
+        self.assertEqual(Chick.objects.all()[0].mother.name, 'Hen')
+        self.assertEqual(Chick.objects.select_related()[0].mother.name, 'Hen')

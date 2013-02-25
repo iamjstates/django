@@ -86,11 +86,12 @@ class AuthViewNamedURLTests(AuthViewsTestCase):
 class PasswordResetTest(AuthViewsTestCase):
 
     def test_email_not_found(self):
-        "Error is raised if the provided email address isn't currently registered"
+        """If the provided email is not registered, don't raise any error but
+        also don't send any email."""
         response = self.client.get('/password_reset/')
         self.assertEqual(response.status_code, 200)
         response = self.client.post('/password_reset/', {'email': 'not_a_real_email@email.com'})
-        self.assertFormError(response, PasswordResetForm.error_messages['unknown'])
+        self.assertEqual(response.status_code, 302)
         self.assertEqual(len(mail.outbox), 0)
 
     def test_email_found(self):
@@ -108,6 +109,7 @@ class PasswordResetTest(AuthViewsTestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual("staffmember@example.com", mail.outbox[0].from_email)
 
+    @override_settings(ALLOWED_HOSTS=['adminsite.com'])
     def test_admin_reset(self):
         "If the reset view is marked as being for admin, the HTTP_HOST header is used for a domain override."
         response = self.client.post('/admin_password_reset/',
@@ -363,6 +365,14 @@ class LoginTest(AuthViewsTestCase):
             self.assertTrue(good_url in response.url,
                             "%s should be allowed" % good_url)
 
+    def test_login_form_contains_request(self):
+        # 15198
+        response = self.client.post('/custom_requestauth_login/', {
+            'username': 'testclient',
+            'password': 'password',
+        }, follow=True)
+        # the custom authentication form used by this login asserts
+        # that a request is passed to the form successfully.
 
 @skipIfCustomUser
 class LoginURLSettings(AuthViewsTestCase):

@@ -2,7 +2,7 @@ from __future__ import absolute_import, unicode_literals
 
 from datetime import datetime
 
-from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
+from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned, FieldError
 from django.db.models.fields import Field, FieldDoesNotExist
 from django.db.models.query import QuerySet, EmptyQuerySet, ValuesListQuerySet
 from django.test import TestCase, skipIfDBFeature, skipUnlessDBFeature
@@ -266,34 +266,34 @@ class ModelTest(TestCase):
         # ... but there will often be more efficient ways if that is all you need:
         self.assertTrue(Article.objects.filter(id=a8.id).exists())
 
-        # dates() returns a list of available dates of the given scope for
+        # datetimes() returns a list of available dates of the given scope for
         # the given field.
         self.assertQuerysetEqual(
-            Article.objects.dates('pub_date', 'year'),
+            Article.objects.datetimes('pub_date', 'year'),
             ["datetime.datetime(2005, 1, 1, 0, 0)"])
         self.assertQuerysetEqual(
-            Article.objects.dates('pub_date', 'month'),
+            Article.objects.datetimes('pub_date', 'month'),
             ["datetime.datetime(2005, 7, 1, 0, 0)"])
         self.assertQuerysetEqual(
-            Article.objects.dates('pub_date', 'day'),
+            Article.objects.datetimes('pub_date', 'day'),
             ["datetime.datetime(2005, 7, 28, 0, 0)",
              "datetime.datetime(2005, 7, 29, 0, 0)",
              "datetime.datetime(2005, 7, 30, 0, 0)",
              "datetime.datetime(2005, 7, 31, 0, 0)"])
         self.assertQuerysetEqual(
-            Article.objects.dates('pub_date', 'day', order='ASC'),
+            Article.objects.datetimes('pub_date', 'day', order='ASC'),
             ["datetime.datetime(2005, 7, 28, 0, 0)",
              "datetime.datetime(2005, 7, 29, 0, 0)",
              "datetime.datetime(2005, 7, 30, 0, 0)",
              "datetime.datetime(2005, 7, 31, 0, 0)"])
         self.assertQuerysetEqual(
-            Article.objects.dates('pub_date', 'day', order='DESC'),
+            Article.objects.datetimes('pub_date', 'day', order='DESC'),
             ["datetime.datetime(2005, 7, 31, 0, 0)",
              "datetime.datetime(2005, 7, 30, 0, 0)",
              "datetime.datetime(2005, 7, 29, 0, 0)",
              "datetime.datetime(2005, 7, 28, 0, 0)"])
 
-        # dates() requires valid arguments.
+        # datetimes() requires valid arguments.
         self.assertRaises(
             TypeError,
             Article.objects.dates,
@@ -324,10 +324,10 @@ class ModelTest(TestCase):
             order="bad order",
         )
 
-        # Use iterator() with dates() to return a generator that lazily
+        # Use iterator() with datetimes() to return a generator that lazily
         # requests each result one at a time, to save memory.
         dates = []
-        for article in Article.objects.dates('pub_date', 'day', order='DESC').iterator():
+        for article in Article.objects.datetimes('pub_date', 'day', order='DESC').iterator():
             dates.append(article)
         self.assertEqual(dates, [
             datetime(2005, 7, 31, 0, 0),
@@ -686,3 +686,8 @@ class ModelTest(TestCase):
         Article.objects.create(headline='foo', pub_date=datetime.now())
         with self.assertNumQueries(0):
             self.assertEqual(len(Article.objects.none().distinct('headline', 'pub_date')), 0)
+
+    def test_invalid_qs_list(self):
+        qs = Article.objects.order_by('invalid_column')
+        self.assertRaises(FieldError, list, qs)
+        self.assertRaises(FieldError, list, qs)

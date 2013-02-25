@@ -48,7 +48,8 @@ from .models import Company, TestModel
 from .patterns.tests import (URLRedirectWithoutTrailingSlashTests,
     URLTranslationTests, URLDisabledTests, URLTagTests, URLTestCaseBase,
     URLRedirectWithoutTrailingSlashSettingTests, URLNamespaceTests,
-    URLPrefixTests, URLResponseTests, URLRedirectTests, PathUnusedTests)
+    URLPrefixTests, URLResponseTests, URLRedirectTests, PathUnusedTests,
+    URLVaryAcceptLanguageTests)
 
 
 here = os.path.dirname(os.path.abspath(upath(__file__)))
@@ -651,6 +652,7 @@ class FormattingTests(TestCase):
         """
         Tests if form input is correctly localized
         """
+        self.maxDiff = 1200
         with translation.override('de-at', deactivate=True):
             form6 = CompanyForm({
                 'name': 'acme',
@@ -954,6 +956,19 @@ class TestLanguageInfo(TestCase):
         self.assertEqual(li['name_local'], 'Deutsch')
         self.assertEqual(li['name'], 'German')
         self.assertEqual(li['bidi'], False)
+
+    def test_unknown_language_code(self):
+        six.assertRaisesRegex(self, KeyError, r"Unknown language code xx\.", get_language_info, 'xx')
+
+    def test_unknown_only_country_code(self):
+        li = get_language_info('de-xx')
+        self.assertEqual(li['code'], 'de')
+        self.assertEqual(li['name_local'], 'Deutsch')
+        self.assertEqual(li['name'], 'German')
+        self.assertEqual(li['bidi'], False)
+
+    def test_unknown_language_code_and_country_code(self):
+        six.assertRaisesRegex(self, KeyError, r"Unknown language code xx-xx and xx\.", get_language_info, 'xx-xx')
 
 
 class MultipleLocaleActivationTests(TestCase):

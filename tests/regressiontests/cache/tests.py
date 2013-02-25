@@ -12,13 +12,15 @@ import string
 import tempfile
 import time
 import warnings
+import pickle
 
 from django.conf import settings
 from django.core import management
 from django.core.cache import get_cache
 from django.core.cache.backends.base import (CacheKeyWarning,
     InvalidCacheBackendError)
-from django.db import router
+from django.db import router, transaction
+from django.core.cache.utils import make_template_fragment_key
 from django.http import (HttpResponse, HttpRequest, StreamingHttpResponse,
     QueryDict)
 from django.middleware.cache import (FetchFromCacheMiddleware,
@@ -836,6 +838,13 @@ class DBCacheTests(BaseCacheTests, TransactionTestCase):
                 interactive=False
             )
 
+    def test_clear_commits_transaction(self):
+        # Ensure the database transaction is committed (#19896)
+        self.cache.set("key1", "spam")
+        self.cache.clear()
+        transaction.rollback()
+        self.assertEqual(self.cache.get("key1"), None)
+
 
 @override_settings(USE_TZ=True)
 class DBCacheWithTimeZoneTests(DBCacheTests):
@@ -976,6 +985,18 @@ class MemcachedCacheTests(unittest.TestCase, BaseCacheTests):
         self.assertRaises(Exception, self.cache.set, 'key with spaces', 'value')
         # memcached limits key length to 250
         self.assertRaises(Exception, self.cache.set, 'a' * 251, 'value')
+
+    # Explicitly display a skipped test if no configured cache uses MemcachedCache
+    @unittest.skipUnless(
+        any(cache['BACKEND'] == 'django.core.cache.backends.memcached.MemcachedCache'
+            for cache in settings.CACHES.values()),
+        "cache with python-memcached library not available")
+    def test_memcached_uses_highest_pickle_version(self):
+        # Regression test for #19810
+        for cache_key, cache in settings.CACHES.items():
+            if cache['BACKEND'] == 'django.core.cache.backends.memcached.MemcachedCache':
+                self.assertEqual(get_cache(cache_key)._cache.pickleProtocol,
+                                 pickle.HIGHEST_PROTOCOL)
 
 
 class FileBasedCacheTests(unittest.TestCase, BaseCacheTests):
@@ -1789,3 +1810,25 @@ class TestEtagWithAdmin(TestCase):
             response = self.client.get('/test_admin/admin/')
             self.assertEqual(response.status_code, 200)
             self.assertTrue(response.has_header('ETag'))
+
+
+class TestMakeTemplateFragmentKey(TestCase):
+    def test_without_vary_on(self):
+        key = make_template_fragment_key('a.fragment')
+        self.assertEqual(key, 'template.cache.a.fragment.d41d8cd98f00b204e9800998ecf8427e')
+
+    def test_with_one_vary_on(self):
+        key = make_template_fragment_key('foo', ['abc'])
+        self.assertEqual(key,
+            'template.cache.foo.900150983cd24fb0d6963f7d28e17f72')
+
+    def test_with_many_vary_on(self):
+        key = make_template_fragment_key('bar', ['abc', 'def'])
+        self.assertEqual(key,
+            'template.cache.bar.4b35f12ab03cec09beec4c21b2d2fa88')
+
+    def test_proper_escaping(self):
+        key = make_template_fragment_key('spam', ['abc:def%'])
+        self.assertEqual(key,
+            'template.cache.spam.f27688177baec990cdf3fbd9d9c3f469')
+
