@@ -6,7 +6,6 @@ and database field objects.
 from __future__ import absolute_import, unicode_literals
 
 from django.core.exceptions import ValidationError, NON_FIELD_ERRORS, FieldError
-from django.core.validators import EMPTY_VALUES
 from django.forms.fields import Field, ChoiceField
 from django.forms.forms import BaseForm, get_declared_fields
 from django.forms.formsets import BaseFormSet, formset_factory
@@ -301,7 +300,7 @@ class BaseModelForm(BaseForm):
             else:
                 form_field = self.fields[field]
                 field_value = self.cleaned_data.get(field, None)
-                if not f.blank and not form_field.required and field_value in EMPTY_VALUES:
+                if not f.blank and not form_field.required and field_value in form_field.empty_values:
                     exclude.append(f.name)
         return exclude
 
@@ -479,7 +478,7 @@ class BaseModelFormSet(BaseFormSet):
             if self.queryset is not None:
                 qs = self.queryset
             else:
-                qs = self.model._default_manager.get_query_set()
+                qs = self.model._default_manager.get_queryset()
 
             # If the queryset isn't already ordered we need to add an
             # artificial ordering here to make sure that all formsets
@@ -669,9 +668,9 @@ class BaseModelFormSet(BaseFormSet):
                 except IndexError:
                     pk_value = None
             if isinstance(pk, OneToOneField) or isinstance(pk, ForeignKey):
-                qs = pk.rel.to._default_manager.get_query_set()
+                qs = pk.rel.to._default_manager.get_queryset()
             else:
-                qs = self.model._default_manager.get_query_set()
+                qs = self.model._default_manager.get_queryset()
             qs = qs.using(form.instance._state.db)
             if form._meta.widgets:
                 widget = form._meta.widgets.get(self._pk_field.name, HiddenInput)
@@ -880,7 +879,7 @@ class InlineForeignKeyField(Field):
         super(InlineForeignKeyField, self).__init__(*args, **kwargs)
 
     def clean(self, value):
-        if value in EMPTY_VALUES:
+        if value in self.empty_values:
             if self.pk_field:
                 return None
             # if there is no value act as we did before.
@@ -1000,7 +999,7 @@ class ModelChoiceField(ChoiceField):
         return super(ModelChoiceField, self).prepare_value(value)
 
     def to_python(self, value):
-        if value in EMPTY_VALUES:
+        if value in self.empty_values:
             return None
         try:
             key = self.to_field_name or 'pk'
@@ -1011,6 +1010,11 @@ class ModelChoiceField(ChoiceField):
 
     def validate(self, value):
         return Field.validate(self, value)
+
+    def _has_changed(self, initial, data):
+        initial_value = initial if initial is not None else ''
+        data_value = data if data is not None else ''
+        return force_text(self.prepare_value(initial_value)) != force_text(data_value)
 
 class ModelMultipleChoiceField(ModelChoiceField):
     """A MultipleChoiceField whose choices are a model QuerySet."""
@@ -1059,3 +1063,14 @@ class ModelMultipleChoiceField(ModelChoiceField):
                 not hasattr(value, '_meta')):
             return [super(ModelMultipleChoiceField, self).prepare_value(v) for v in value]
         return super(ModelMultipleChoiceField, self).prepare_value(value)
+
+    def _has_changed(self, initial, data):
+        if initial is None:
+            initial = []
+        if data is None:
+            data = []
+        if len(initial) != len(data):
+            return True
+        initial_set = set([force_text(value) for value in self.prepare_value(initial)])
+        data_set = set([force_text(value) for value in data])
+        return data_set != initial_set

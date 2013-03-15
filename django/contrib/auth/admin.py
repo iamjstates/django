@@ -85,7 +85,7 @@ class UserAdmin(admin.ModelAdmin):
 
     @sensitive_post_parameters()
     @csrf_protect_m
-    @transaction.commit_on_success
+    @transaction.atomic
     def add_view(self, request, form_url='', extra_context=None):
         # It's an error for a user to have add permission but NOT change
         # permission for users. If we allowed such users to add users, they
@@ -118,7 +118,7 @@ class UserAdmin(admin.ModelAdmin):
     def user_change_password(self, request, id, form_url=''):
         if not self.has_change_permission(request):
             raise PermissionDenied
-        user = get_object_or_404(self.queryset(request), pk=id)
+        user = get_object_or_404(self.get_queryset(request), pk=id)
         if request.method == 'POST':
             form = self.change_password_form(user, request.POST)
             if form.is_valid():

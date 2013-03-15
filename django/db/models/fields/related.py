@@ -11,6 +11,7 @@ from django.db.models.query_utils import QueryWrapper
 from django.db.models.deletion import CASCADE
 from django.utils.encoding import smart_text
 from django.utils import six
+from django.utils.deprecation import RenameMethodsBase
 from django.utils.translation import ugettext_lazy as _, string_concat
 from django.utils.functional import curry, cached_property
 from django.core import exceptions
@@ -152,9 +153,9 @@ class RelatedField(object):
         if hasattr(value, 'get_compiler'):
             value = value.get_compiler(connection=connection)
         if hasattr(value, 'as_sql') or hasattr(value, '_as_sql'):
-            # If the value has a relabel_aliases method, it will need to
-            # be invoked before the final SQL is evaluated
-            if hasattr(value, 'relabel_aliases'):
+            # If the value has a relabeled_clone method it means the
+            # value will be handled later on.
+            if hasattr(value, 'relabeled_clone'):
                 return value
             if hasattr(value, 'as_sql'):
                 sql, params = value.as_sql()
@@ -225,7 +226,14 @@ class RelatedField(object):
         return self.rel.related_name or self.opts.model_name
 
 
-class SingleRelatedObjectDescriptor(object):
+class RenameRelatedObjectDescriptorMethods(RenameMethodsBase):
+    renamed_methods = (
+        ('get_query_set', 'get_queryset', PendingDeprecationWarning),
+        ('get_prefetch_query_set', 'get_prefetch_queryset', PendingDeprecationWarning),
+    )
+
+
+class SingleRelatedObjectDescriptor(six.with_metaclass(RenameRelatedObjectDescriptorMethods)):
     # This class provides the functionality that makes the related-object
     # managers available as attributes on a model class, for fields that have
     # a single "remote" value, on the class pointed to by a related field.
@@ -238,16 +246,16 @@ class SingleRelatedObjectDescriptor(object):
     def is_cached(self, instance):
         return hasattr(instance, self.cache_name)
 
-    def get_query_set(self, **db_hints):
+    def get_queryset(self, **db_hints):
         db = router.db_for_read(self.related.model, **db_hints)
         return self.related.model._base_manager.using(db)
 
-    def get_prefetch_query_set(self, instances):
+    def get_prefetch_queryset(self, instances):
         rel_obj_attr = attrgetter(self.related.field.attname)
         instance_attr = lambda obj: obj._get_pk_val()
         instances_dict = dict((instance_attr(inst), inst) for inst in instances)
         params = {'%s__pk__in' % self.related.field.name: list(instances_dict)}
-        qs = self.get_query_set(instance=instances[0]).filter(**params)
+        qs = self.get_queryset(instance=instances[0]).filter(**params)
         # Since we're going to assign directly in the cache,
         # we must manage the reverse relation cache manually.
         rel_obj_cache_name = self.related.field.get_cache_name()
@@ -268,7 +276,7 @@ class SingleRelatedObjectDescriptor(object):
             else:
                 params = {'%s__pk' % self.related.field.name: related_pk}
                 try:
-                    rel_obj = self.get_query_set(instance=instance).get(**params)
+                    rel_obj = self.get_queryset(instance=instance).get(**params)
                 except self.related.model.DoesNotExist:
                     rel_obj = None
                 else:
@@ -321,7 +329,7 @@ class SingleRelatedObjectDescriptor(object):
         setattr(value, self.related.field.get_cache_name(), instance)
 
 
-class ReverseSingleRelatedObjectDescriptor(object):
+class ReverseSingleRelatedObjectDescriptor(six.with_metaclass(RenameRelatedObjectDescriptorMethods)):
     # This class provides the functionality that makes the related-object
     # managers available as attributes on a model class, for fields that have
     # a single "remote" value, on the class that defines the related field.
@@ -334,7 +342,7 @@ class ReverseSingleRelatedObjectDescriptor(object):
     def is_cached(self, instance):
         return hasattr(instance, self.cache_name)
 
-    def get_query_set(self, **db_hints):
+    def get_queryset(self, **db_hints):
         db = router.db_for_read(self.field.rel.to, **db_hints)
         rel_mgr = self.field.rel.to._default_manager
         # If the related manager indicates that it should be used for
@@ -344,7 +352,7 @@ class ReverseSingleRelatedObjectDescriptor(object):
         else:
             return QuerySet(self.field.rel.to).using(db)
 
-    def get_prefetch_query_set(self, instances):
+    def get_prefetch_queryset(self, instances):
         other_field = self.field.rel.get_related_field()
         rel_obj_attr = attrgetter(other_field.attname)
         instance_attr = attrgetter(self.field.attname)
@@ -353,7 +361,7 @@ class ReverseSingleRelatedObjectDescriptor(object):
             params = {'%s__pk__in' % self.field.rel.field_name: list(instances_dict)}
         else:
             params = {'%s__in' % self.field.rel.field_name: list(instances_dict)}
-        qs = self.get_query_set(instance=instances[0]).filter(**params)
+        qs = self.get_queryset(instance=instances[0]).filter(**params)
         # Since we're going to assign directly in the cache,
         # we must manage the reverse relation cache manually.
         if not self.field.rel.multiple:
@@ -378,7 +386,7 @@ class ReverseSingleRelatedObjectDescriptor(object):
                     params = {'%s__%s' % (self.field.rel.field_name, other_field.rel.field_name): val}
                 else:
                     params = {'%s__exact' % self.field.rel.field_name: val}
-                qs = self.get_query_set(instance=instance)
+                qs = self.get_queryset(instance=instance)
                 # Assuming the database enforces foreign keys, this won't fail.
                 rel_obj = qs.get(**params)
                 if not self.field.rel.multiple:
@@ -490,26 +498,26 @@ class ForeignRelatedObjectsDescriptor(object):
                 }
                 self.model = rel_model
 
-            def get_query_set(self):
+            def get_queryset(self):
                 try:
                     return self.instance._prefetched_objects_cache[rel_field.related_query_name()]
                 except (AttributeError, KeyError):
                     db = self._db or router.db_for_read(self.model, instance=self.instance)
-                    qs = super(RelatedManager, self).get_query_set().using(db).filter(**self.core_filters)
+                    qs = super(RelatedManager, self).get_queryset().using(db).filter(**self.core_filters)
                     val = getattr(self.instance, attname)
                     if val is None or val == '' and connections[db].features.interprets_empty_strings_as_nulls:
                         return qs.none()
                     qs._known_related_objects = {rel_field: {self.instance.pk: self.instance}}
                     return qs
 
-            def get_prefetch_query_set(self, instances):
+            def get_prefetch_queryset(self, instances):
                 rel_obj_attr = attrgetter(rel_field.attname)
                 instance_attr = attrgetter(attname)
                 instances_dict = dict((instance_attr(inst), inst) for inst in instances)
                 db = self._db or router.db_for_read(self.model, instance=instances[0])
                 query = {'%s__%s__in' % (rel_field.name, attname): list(instances_dict)}
-                qs = super(RelatedManager, self).get_query_set().using(db).filter(**query)
-                # Since we just bypassed this class' get_query_set(), we must manage
+                qs = super(RelatedManager, self).get_queryset().using(db).filter(**query)
+                # Since we just bypassed this class' get_queryset(), we must manage
                 # the reverse relation manually.
                 for rel_obj in qs:
                     instance = instances_dict[rel_obj_attr(rel_obj)]
@@ -603,20 +611,20 @@ def create_many_related_manager(superclass, rel):
             else:
                 return obj.pk
 
-        def get_query_set(self):
+        def get_queryset(self):
             try:
                 return self.instance._prefetched_objects_cache[self.prefetch_cache_name]
             except (AttributeError, KeyError):
                 db = self._db or router.db_for_read(self.instance.__class__, instance=self.instance)
-                return super(ManyRelatedManager, self).get_query_set().using(db)._next_is_sticky().filter(**self.core_filters)
+                return super(ManyRelatedManager, self).get_queryset().using(db)._next_is_sticky().filter(**self.core_filters)
 
-        def get_prefetch_query_set(self, instances):
+        def get_prefetch_queryset(self, instances):
             instance = instances[0]
             from django.db import connections
             db = self._db or router.db_for_read(instance.__class__, instance=instance)
             query = {'%s__pk__in' % self.query_field_name:
                          set(obj._get_pk_val() for obj in instances)}
-            qs = super(ManyRelatedManager, self).get_query_set().using(db)._next_is_sticky().filter(**query)
+            qs = super(ManyRelatedManager, self).get_queryset().using(db)._next_is_sticky().filter(**query)
 
             # M2M: need to annotate the query in order to get the primary model
             # that the secondary model was actually related to. We know that
@@ -955,7 +963,9 @@ class OneToOneRel(ManyToOneRel):
 
 class ManyToManyRel(object):
     def __init__(self, to, related_name=None, limit_choices_to=None,
-            symmetrical=True, through=None):
+            symmetrical=True, through=None, db_constraint=True):
+        if through and not db_constraint:
+            raise ValueError("Can't supply a through model and db_constraint=False")
         self.to = to
         self.related_name = related_name
         if limit_choices_to is None:
@@ -964,6 +974,7 @@ class ManyToManyRel(object):
         self.symmetrical = symmetrical
         self.multiple = True
         self.through = through
+        self.db_constraint = db_constraint
 
     def is_hidden(self):
         "Should the related object be hidden?"
@@ -1202,15 +1213,15 @@ def create_many_to_many_intermediary_model(field, klass):
     return type(name, (models.Model,), {
         'Meta': meta,
         '__module__': klass.__module__,
-        from_: models.ForeignKey(klass, related_name='%s+' % name, db_tablespace=field.db_tablespace),
-        to: models.ForeignKey(to_model, related_name='%s+' % name, db_tablespace=field.db_tablespace)
+        from_: models.ForeignKey(klass, related_name='%s+' % name, db_tablespace=field.db_tablespace, db_constraint=field.rel.db_constraint),
+        to: models.ForeignKey(to_model, related_name='%s+' % name, db_tablespace=field.db_tablespace, db_constraint=field.rel.db_constraint)
     })
 
 
 class ManyToManyField(RelatedField, Field):
     description = _("Many-to-many relationship")
 
-    def __init__(self, to, **kwargs):
+    def __init__(self, to, db_constraint=True, **kwargs):
         try:
             assert not to._meta.abstract, "%s cannot define a relation with abstract class %s" % (self.__class__.__name__, to._meta.object_name)
         except AttributeError:  # to._meta doesn't exist, so it must be RECURSIVE_RELATIONSHIP_CONSTANT
@@ -1225,13 +1236,15 @@ class ManyToManyField(RelatedField, Field):
             related_name=kwargs.pop('related_name', None),
             limit_choices_to=kwargs.pop('limit_choices_to', None),
             symmetrical=kwargs.pop('symmetrical', to == RECURSIVE_RELATIONSHIP_CONSTANT),
-            through=kwargs.pop('through', None))
+            through=kwargs.pop('through', None),
+            db_constraint=db_constraint,
+        )
 
         self.db_table = kwargs.pop('db_table', None)
         if kwargs['rel'].through is not None:
             assert self.db_table is None, "Cannot specify a db_table if an intermediary model is used."
 
-        Field.__init__(self, **kwargs)
+        super(ManyToManyField, self).__init__(**kwargs)
 
         msg = _('Hold down "Control", or "Command" on a Mac, to select more than one.')
         self.help_text = string_concat(self.help_text, ' ', msg)
