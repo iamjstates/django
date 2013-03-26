@@ -110,7 +110,7 @@ def model_to_dict(instance, fields=None, exclude=None):
     from django.db.models.fields.related import ManyToManyField
     opts = instance._meta
     data = {}
-    for f in opts.fields + opts.many_to_many:
+    for f in opts.concrete_fields + opts.many_to_many:
         if not f.editable:
             continue
         if fields and not f.name in fields:
@@ -149,7 +149,7 @@ def fields_for_model(model, fields=None, exclude=None, widgets=None, formfield_c
     field_list = []
     ignored = []
     opts = model._meta
-    for f in sorted(opts.fields + opts.many_to_many):
+    for f in sorted(opts.concrete_fields + opts.many_to_many):
         if not f.editable:
             continue
         if fields is not None and not f.name in fields:
@@ -935,7 +935,7 @@ class ModelChoiceField(ChoiceField):
 
     def __init__(self, queryset, empty_label="---------", cache_choices=False,
                  required=True, widget=None, label=None, initial=None,
-                 help_text=None, to_field_name=None, *args, **kwargs):
+                 help_text='', to_field_name=None, *args, **kwargs):
         if required and (initial is not None):
             self.empty_label = None
         else:
@@ -1031,7 +1031,7 @@ class ModelMultipleChoiceField(ModelChoiceField):
 
     def __init__(self, queryset, cache_choices=False, required=True,
                  widget=None, label=None, initial=None,
-                 help_text=None, *args, **kwargs):
+                 help_text='', *args, **kwargs):
         super(ModelMultipleChoiceField, self).__init__(queryset, None,
             cache_choices, required, widget, label, initial, help_text,
             *args, **kwargs)
