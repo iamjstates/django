@@ -2,6 +2,24 @@
 Django 1.6 release notes - UNDER DEVELOPMENT
 ============================================
 
+.. note::
+
+    Dedicated to Malcolm Tredinnick
+
+    On March 17, 2013, the Django project and the free software community lost
+    a very dear friend and developer.
+
+    Malcolm was a long-time contributor to Django, a model community member, a
+    brilliant mind, and a friend. His contributions to Django — and to many other
+    open source projects — are nearly impossible to enumerate. Many on the core
+    Django team had their first patches reviewed by him; his mentorship enriched
+    us. His consideration, patience, and dedication will always be an inspiration
+    to us.
+
+    This release of Django is for Malcolm.
+
+    -- The Django Developers
+
 Welcome to Django 1.6!
 
 These release notes cover the `new features`_, as well as some `backwards
@@ -373,6 +391,24 @@ For Oracle, execute this query:
 If you do not apply this change, the behaviour is unchanged: on MySQL, IPv6
 addresses are silently truncated; on Oracle, an exception is generated. No
 database change is needed for SQLite or PostgreSQL databases.
+
+Percent literals in ``cursor.execute`` queries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When you are running raw SQL queries through the
+:ref:`cursor.execute <executing-custom-sql>` method, the rule about doubling
+percent literals (``%``) inside the query has been unified. Past behavior
+depended on the database backend. Now, across all backends, you only need to
+double literal percent characters if you are also providing replacement
+parameters. For example::
+
+    # No parameters, no percent doubling
+    cursor.execute("SELECT foo FROM bar WHERE baz = '30%'")
+
+    # Parameters passed, non-placeholders have to be doubled
+    cursor.execute("SELECT foo FROM bar WHERE baz = '30%%' and id = %s", [self.id])
+
+``SQLite`` users need to check and update such queries.
 
 Miscellaneous
 ~~~~~~~~~~~~~

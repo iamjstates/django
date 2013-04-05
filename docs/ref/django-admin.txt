@@ -761,7 +761,8 @@ Serving static files with the development server
 
 By default, the development server doesn't serve any static files for your site
 (such as CSS files, images, things under :setting:`MEDIA_URL` and so forth). If
-you want to configure Django to serve static media, read :doc:`/howto/static-files`.
+you want to configure Django to serve static media, read
+:doc:`/howto/static-files/index`.
 
 shell
 -----
@@ -1035,7 +1036,8 @@ through the template engine: the files whose extensions match the
 with the ``--name`` option. The :class:`template context
 <django.template.Context>` used is:
 
-- Any option passed to the startproject command
+- Any option passed to the startapp command (among the command's supported
+  options)
 - ``project_name`` -- the project name as passed to the command
 - ``project_directory`` -- the full path of the newly created project
 - ``secret_key`` -- a random key for the :setting:`SECRET_KEY` setting
@@ -1289,7 +1291,7 @@ collectstatic
 ~~~~~~~~~~~~~
 
 This command is only available if the :doc:`static files application
-</howto/static-files>` (``django.contrib.staticfiles``) is installed.
+</howto/static-files/index>` (``django.contrib.staticfiles``) is installed.
 
 Please refer to its :djadmin:`description <collectstatic>` in the
 :doc:`staticfiles </ref/contrib/staticfiles>` documentation.
@@ -1298,7 +1300,7 @@ findstatic
 ~~~~~~~~~~
 
 This command is only available if the :doc:`static files application
-</howto/static-files>` (``django.contrib.staticfiles``) is installed.
+</howto/static-files/index>` (``django.contrib.staticfiles``) is installed.
 
 Please refer to its :djadmin:`description <findstatic>` in the :doc:`staticfiles
 </ref/contrib/staticfiles>` documentation.
