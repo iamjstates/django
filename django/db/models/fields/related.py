@@ -11,7 +11,7 @@ from django.db.models.deletion import CASCADE
 from django.utils.encoding import smart_text
 from django.utils import six
 from django.utils.deprecation import RenameMethodsBase
-from django.utils.translation import ugettext_lazy as _, string_concat
+from django.utils.translation import ugettext_lazy as _
 from django.utils.functional import curry, cached_property
 from django.core import exceptions
 from django import forms
@@ -201,7 +201,9 @@ class SingleRelatedObjectDescriptor(six.with_metaclass(RenameRelatedObjectDescri
                     setattr(rel_obj, self.related.field.get_cache_name(), instance)
             setattr(instance, self.cache_name, rel_obj)
         if rel_obj is None:
-            raise self.related.model.DoesNotExist
+            raise self.related.model.DoesNotExist("%s has no %s." % (
+                                                  instance.__class__.__name__,
+                                                  self.related.get_accessor_name()))
         else:
             return rel_obj
 
@@ -304,7 +306,8 @@ class ReverseSingleRelatedObjectDescriptor(six.with_metaclass(RenameRelatedObjec
                     setattr(rel_obj, self.field.related.get_cache_name(), instance)
             setattr(instance, self.cache_name, rel_obj)
         if rel_obj is None and not self.field.null:
-            raise self.field.rel.to.DoesNotExist
+            raise self.field.rel.to.DoesNotExist(
+                "%s has no %s." % (self.field.model.__name__, self.field.name))
         else:
             return rel_obj
 
@@ -1353,9 +1356,6 @@ class ManyToManyField(RelatedField):
             assert self.db_table is None, "Cannot specify a db_table if an intermediary model is used."
 
         super(ManyToManyField, self).__init__(**kwargs)
-
-        msg = _('Hold down "Control", or "Command" on a Mac, to select more than one.')
-        self.help_text = string_concat(self.help_text, ' ', msg)
 
     def _get_path_info(self, direct=False):
         """

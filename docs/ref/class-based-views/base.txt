@@ -55,7 +55,7 @@ View
 
         Default::
 
-            ['get', 'post', 'put', 'delete', 'head', 'options', 'trace']
+            ['get', 'post', 'put', 'patch', 'delete', 'head', 'options', 'trace']
 
     **Methods**
 
@@ -208,7 +208,7 @@ RedirectView
 
         urlpatterns = patterns('',
 
-            url(r'r^(?P<pk>\d+)/$', ArticleCounterRedirectView.as_view(), name='article-counter'),
+            url(r'^(?P<pk>\d+)/$', ArticleCounterRedirectView.as_view(), name='article-counter'),
             url(r'^go-to-django/$', RedirectView.as_view(url='http://djangoproject.com'), name='go-to-django'),
         )
 
