@@ -6,9 +6,8 @@ from __future__ import unicode_literals
 
 import os
 
-from django.conf import settings
 from django.core.urlresolvers import reverse
-from django.template import (TemplateDoesNotExist, TemplateSyntaxError,
+from django.template import (TemplateSyntaxError,
     Context, Template, loader)
 import django.template.context
 from django.test import Client, TestCase
@@ -18,7 +17,10 @@ from django.template.response import SimpleTemplateResponse
 from django.utils._os import upath
 from django.utils.translation import ugettext_lazy
 from django.http import HttpResponse
+from django.contrib.auth.signals import user_logged_out, user_logged_in
+from django.contrib.auth.models import User
 
+from .models import CustomUser
 from .views import CustomTestException
 
 @override_settings(
@@ -897,6 +899,21 @@ class ContextTests(TestCase):
         except KeyError as e:
             self.assertEqual(e.args[0], 'does-not-exist')
 
+    def test_contextlist_keys(self):
+        c1 = Context()
+        c1.update({'hello': 'world', 'goodbye': 'john'})
+        c1.update({'hello': 'dolly', 'dolly': 'parton'})
+        c2 = Context()
+        c2.update({'goodbye': 'world', 'python': 'rocks'})
+        c2.update({'goodbye': 'dolly'})
+
+        l = ContextList([c1, c2])
+        # None, True and False are builtins of BaseContext, and present
+        # in every Context without needing to be added.
+        self.assertEqual(set(['None', 'True', 'False', 'hello', 'goodbye',
+                              'python', 'dolly']),
+                         l.keys())
+
     def test_15368(self):
         # Need to insert a context processor that assumes certain things about
         # the request instance. This triggers a bug caused by some ways of
@@ -946,6 +963,76 @@ class SessionTests(TestCase):
         self.assertTrue(login, 'Could not log in')
         self.client.logout()
         self.client.logout()
+
+    def test_logout_with_user(self):
+        """Logout should send user_logged_out signal if user was logged in."""
+        def listener(*args, **kwargs):
+            listener.executed = True
+            self.assertEqual(kwargs['sender'], User)
+        listener.executed = False
+
+        user_logged_out.connect(listener)
+        self.client.login(username='testclient', password='password')
+        self.client.logout()
+        user_logged_out.disconnect(listener)
+        self.assertTrue(listener.executed)
+
+    @override_settings(AUTH_USER_MODEL='test_client_regress.CustomUser')
+    def test_logout_with_custom_user(self):
+        """Logout should send user_logged_out signal if custom user was logged in."""
+        def listener(*args, **kwargs):
+            self.assertEqual(kwargs['sender'], CustomUser)
+            listener.executed = True
+        listener.executed = False
+        u = CustomUser.custom_objects.create(email='test@test.com')
+        u.set_password('password')
+        u.save()
+
+        user_logged_out.connect(listener)
+        self.client.login(username='test@test.com', password='password')
+        self.client.logout()
+        user_logged_out.disconnect(listener)
+        self.assertTrue(listener.executed)
+
+    def test_logout_without_user(self):
+        """Logout should send signal even if user not authenticated."""
+        def listener(user, *args, **kwargs):
+            listener.user = user
+            listener.executed = True
+        listener.executed = False
+
+        user_logged_out.connect(listener)
+        self.client.login(username='incorrect', password='password')
+        self.client.logout()
+        user_logged_out.disconnect(listener)
+
+        self.assertTrue(listener.executed)
+        self.assertIsNone(listener.user)
+
+    def test_login_with_user(self):
+        """Login should send user_logged_in signal on successful login."""
+        def listener(*args, **kwargs):
+            listener.executed = True
+        listener.executed = False
+
+        user_logged_in.connect(listener)
+        self.client.login(username='testclient', password='password')
+        user_logged_out.disconnect(listener)
+
+        self.assertTrue(listener.executed)
+
+    def test_login_without_signal(self):
+        """Login shouldn't send signal if user wasn't logged in"""
+        def listener(*args, **kwargs):
+            listener.executed = True
+        listener.executed = False
+
+        user_logged_in.connect(listener)
+        self.client.login(username='incorrect', password='password')
+        user_logged_in.disconnect(listener)
+
+        self.assertFalse(listener.executed)
+
 
 class RequestMethodTests(TestCase):
     def test_get(self):

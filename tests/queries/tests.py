@@ -1111,6 +1111,17 @@ class Queries1Tests(BaseQuerysetTest):
             ['<Report: r1>']
         )
 
+    def test_ticket_20250(self):
+        # A negated Q along with an annotated queryset failed in Django 1.4
+        qs = Author.objects.annotate(Count('item'))
+        qs = qs.filter(~Q(extra__value=0))
+
+        self.assertTrue('SELECT' in str(qs.query))
+        self.assertQuerysetEqual(
+            qs,
+            ['<Author: a1>', '<Author: a2>', '<Author: a3>', '<Author: a4>']
+        )
+
 
 class Queries2Tests(TestCase):
     def setUp(self):
@@ -2841,3 +2852,14 @@ class DoubleInSubqueryTests(TestCase):
         qs = LeafB.objects.filter(pk__in=joins)
         self.assertQuerysetEqual(
             qs, [lfb1], lambda x: x)
+
+class Ticket18785Tests(unittest.TestCase):
+    def test_ticket_18785(self):
+        # Test join trimming from ticket18785
+        qs = Item.objects.exclude(
+            note__isnull=False
+        ).filter(
+            name='something', creator__extra__isnull=True
+        ).order_by()
+        self.assertEqual(1, str(qs.query).count('INNER JOIN'))
+        self.assertEqual(0, str(qs.query).count('OUTER JOIN'))
