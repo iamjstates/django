@@ -325,6 +325,11 @@ Minor features
   :ref:`see the updated recommendation <raising-validation-error>` for raising
   a ``ValidationError``.
 
+* :class:`~django.contrib.admin.ModelAdmin` now preserves filters on the list view
+  after creating, editing or deleting an object. It's possible to restore the previous
+  behavior of clearing filters by setting the
+  :attr:`~django.contrib.admin.ModelAdmin.preserve_filters` attribute to ``False``.
+
 Backwards incompatible changes in 1.6
 =====================================
 
@@ -634,6 +639,16 @@ will render something like:
 If you want to keep the current behavior of rendering ``label_tag`` without
 the ``label_suffix``, instantiate the form ``label_suffix=''``.
 
+Admin views ``_changelist_filters`` GET parameter
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To achieve preserving and restoring list view filters, admin views now
+pass around the `_changelist_filters` GET parameter. It's important that you
+account for that change if you have custom admin templates or if your tests
+rely on the previous URLs. If you want to revert to the original behavior you
+can set the
+:attr:`~django.contrib.admin.ModelAdmin.preserve_filters` attribute to ``False``.
+
 Miscellaneous
 ~~~~~~~~~~~~~
 
@@ -700,6 +715,24 @@ Miscellaneous
 
 * :class:`~django.views.generic.base.RedirectView` now has a `pattern_name`
   attribute which allows it to choose the target by reversing the URL.
+
+* In Django 1.4 and 1.5, a blank string was unintentionally not considered to
+  be a valid password. This meant
+  :meth:`~django.contrib.auth.models.User.set_password()` would save a blank
+  password as an unusable password like
+  :meth:`~django.contrib.auth.models.User.set_unusable_password()` does, and
+  thus :meth:`~django.contrib.auth.models.User.check_password()` always
+  returned ``False`` for blank passwords. This has been corrected in this
+  release: blank passwords are now valid.
+
+* The admin :attr:`~django.contrib.admin.ModelAdmin.changelist_view` previously
+  accepted a ``pop`` GET parameter to signify it was to be displayed in a popup.
+  This parameter has been renamed to ``_popup`` to be consistent with the rest
+  of the admin views. You should update your custom templates if they use the
+  previous parameter name.
+
+* Added :attr:`~django.views.generic.edit.FormMixin.prefix` to allow you to
+  customize the prefix on the form.
 
 Features deprecated in 1.6
 ==========================
