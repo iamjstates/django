@@ -1083,6 +1083,22 @@ define the details of how the relation works.
 
         user = models.ForeignKey(User, related_name='+')
 
+.. attribute:: ForeignKey.related_query_name
+
+    .. versionadded:: 1.6
+
+    The name to use for the reverse filter name from the target model.
+    Defaults to the value of :attr:`related_name` if it is set, otherwise it
+    defaults to the name of the model::
+
+        # Declare the ForeignKey with related_query_name
+        class Tag(models.Model):
+            article = models.ForeignKey(Article, related_name="tags", related_query_name="tag")
+            name = models.CharField(max_length=255)
+
+        # That's now the name of the reverse filter
+        article_instance.filter(tag__name="important")
+
 .. attribute:: ForeignKey.to_field
 
     The field on the related object that the relation is to. By default, Django
@@ -1168,10 +1184,10 @@ The possible values for :attr:`~ForeignKey.on_delete` are found in
 
 .. class:: ManyToManyField(othermodel, [**options])
 
-A many-to-many relationship. Requires a positional argument: the class to which
-the model is related. This works exactly the same as it does for
-:class:`ForeignKey`, including all the options regarding :ref:`recursive
-<recursive-relationships>` and :ref:`lazy <lazy-relationships>` relationships.
+A many-to-many relationship. Requires a positional argument: the class to
+which the model is related, which works exactly the same as it does for
+:class:`ForeignKey`, including :ref:`recursive <recursive-relationships>` and
+:ref:`lazy <lazy-relationships>` relationships.
 
 Related objects can be added, removed, or created with the field's
 :class:`~django.db.models.fields.related.RelatedManager`.
@@ -1206,6 +1222,12 @@ that control how the relationship functions.
 
         users = models.ManyToManyField(User, related_name='u+')
         referents = models.ManyToManyField(User, related_name='ref+')
+
+.. attribute:: ForeignKey.related_query_name
+
+    .. versionadded:: 1.6
+
+    Same as :attr:`ForeignKey.related_query_name`.
 
 .. attribute:: ManyToManyField.limit_choices_to
 

@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from datetime import datetime, timedelta
 import re
 import types
-from datetime import datetime, timedelta
+from unittest import TestCase
 
 from django.core.exceptions import ValidationError
 from django.core.validators import *
 from django.test.utils import str_prefix
-from django.utils.unittest import TestCase
 
 
 NOW = datetime.now()
@@ -46,6 +46,7 @@ TEST_DATA = (
     (validate_email, 'example@-invalid.com', ValidationError),
     (validate_email, 'example@inv-.alid-.com', ValidationError),
     (validate_email, 'example@inv-.-alid.com', ValidationError),
+    (validate_email, 'test@example.com\n\n<script src="x.js">', ValidationError),
     # Quoted-string format (CR not allowed)
     (validate_email, '"\\\011"@here.com', None),
     (validate_email, '"\\\012"@here.com', ValidationError),

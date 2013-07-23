@@ -4,6 +4,7 @@ import datetime
 from operator import attrgetter
 import pickle
 import sys
+import unittest
 
 from django.conf import settings
 from django.core.exceptions import FieldError
@@ -13,7 +14,6 @@ from django.db.models.sql.where import WhereNode, EverythingNode, NothingNode
 from django.db.models.sql.datastructures import EmptyResultSet
 from django.test import TestCase, skipUnlessDBFeature
 from django.test.utils import str_prefix
-from django.utils import unittest
 from django.utils.datastructures import SortedDict
 
 from .models import (
@@ -2148,13 +2148,6 @@ class ConditionalTests(BaseQuerysetTest):
         t4 = Tag.objects.create(name='t4', parent=t3)
         t5 = Tag.objects.create(name='t5', parent=t3)
 
-
-    # In Python 2.6 beta releases, exceptions raised in __len__ are swallowed
-    # (Python issue 1242657), so these cases return an empty list, rather than
-    # raising an exception. Not a lot we can do about that, unfortunately, due to
-    # the way Python handles list() calls internally. Thus, we skip the tests for
-    # Python 2.6.
-    @unittest.skipIf(sys.version_info[:2] == (2, 6), "Python version is 2.6")
     def test_infinite_loop(self):
         # If you're not careful, it's possible to introduce infinite loops via
         # default ordering on foreign keys in a cycle. We detect that.
@@ -2917,7 +2910,7 @@ class DoubleInSubqueryTests(TestCase):
         self.assertQuerysetEqual(
             qs, [lfb1], lambda x: x)
 
-class Ticket18785Tests(unittest.TestCase):
+class Ticket18785Tests(TestCase):
     def test_ticket_18785(self):
         # Test join trimming from ticket18785
         qs = Item.objects.exclude(
@@ -2927,3 +2920,22 @@ class Ticket18785Tests(unittest.TestCase):
         ).order_by()
         self.assertEqual(1, str(qs.query).count('INNER JOIN'))
         self.assertEqual(0, str(qs.query).count('OUTER JOIN'))
+
+
+class Ticket20788Tests(TestCase):
+    def test_ticket_20788(self):
+        Paragraph.objects.create()
+        paragraph = Paragraph.objects.create()
+        page = paragraph.page.create()
+        chapter = Chapter.objects.create(paragraph=paragraph)
+        Book.objects.create(chapter=chapter)
+
+        paragraph2 = Paragraph.objects.create()
+        Page.objects.create()
+        chapter2 = Chapter.objects.create(paragraph=paragraph2)
+        book2 = Book.objects.create(chapter=chapter2)
+
+        sentences_not_in_pub = Book.objects.exclude(
+            chapter__paragraph__page=page)
+        self.assertQuerysetEqual(
+            sentences_not_in_pub, [book2], lambda x: x)

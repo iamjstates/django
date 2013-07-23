@@ -8,12 +8,13 @@ except ImportError:     # Python 2
 
 from django.conf import global_settings, settings
 from django.contrib.sites.models import Site, RequestSite
+from django.contrib.admin.models import LogEntry
 from django.contrib.auth.models import User
 from django.core import mail
 from django.core.urlresolvers import reverse, NoReverseMatch
 from django.http import QueryDict, HttpRequest
 from django.utils.encoding import force_text
-from django.utils.http import int_to_base36, urlsafe_base64_decode, urlquote
+from django.utils.http import urlquote
 from django.utils._os import upath
 from django.test import TestCase
 from django.test.utils import override_settings, patch_logger
@@ -53,6 +54,11 @@ class AuthViewsTestCase(TestCase):
             })
         self.assertTrue(SESSION_KEY in self.client.session)
         return response
+
+    def logout(self):
+        response = self.client.get('/admin/logout/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(SESSION_KEY not in self.client.session)
 
     def assertFormError(self, response, error):
         """Assert that error is found in response.context['form'] errors"""
@@ -193,16 +199,6 @@ class PasswordResetTest(AuthViewsTestCase):
         # redirect to a 'complete' page:
         self.assertContains(response, "Please enter your new password")
 
-    def test_confirm_valid_base36(self):
-        # Remove in Django 1.7
-        url, path = self._test_confirm_start()
-        path_parts = path.strip("/").split("/")
-        # construct an old style (base36) URL by converting the base64 ID
-        path_parts[1] = int_to_base36(int(urlsafe_base64_decode(path_parts[1])))
-        response = self.client.get("/%s/%s-%s/" % tuple(path_parts))
-        # redirect to a 'complete' page:
-        self.assertContains(response, "Please enter your new password")
-
     def test_confirm_invalid(self):
         url, path = self._test_confirm_start()
         # Let's munge the token in the path, but keep the same length,
@@ -217,19 +213,9 @@ class PasswordResetTest(AuthViewsTestCase):
         response = self.client.get('/reset/123456/1-1/')
         self.assertContains(response, "The password reset link was invalid")
 
-    def test_confirm_invalid_user_base36(self):
-        # Remove in Django 1.7
-        response = self.client.get('/reset/123456-1-1/')
-        self.assertContains(response, "The password reset link was invalid")
-
     def test_confirm_overflow_user(self):
         # Ensure that we get a 200 response for a base36 user id that overflows int
         response = self.client.get('/reset/zzzzzzzzzzzzz/1-1/')
-        self.assertContains(response, "The password reset link was invalid")
-
-    def test_confirm_overflow_user_base36(self):
-        # Remove in Django 1.7
-        response = self.client.get('/reset/zzzzzzzzzzzzz-1-1/')
         self.assertContains(response, "The password reset link was invalid")
 
     def test_confirm_invalid_post(self):
@@ -690,18 +676,70 @@ class LogoutTest(AuthViewsTestCase):
             self.confirm_logged_out()
 
 @skipIfCustomUser
+@override_settings(
+    PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
+)
 class ChangelistTests(AuthViewsTestCase):
     urls = 'django.contrib.auth.tests.urls_admin'
+
+    def setUp(self):
+        # Make me a superuser before logging in.
+        User.objects.filter(username='testclient').update(is_staff=True, is_superuser=True)
+        self.login()
+        self.admin = User.objects.get(pk=1)
+
+    def get_user_data(self, user):
+        return {
+            'username': user.username,
+            'password': user.password,
+            'email': user.email,
+            'is_active': user.is_active,
+            'is_staff': user.is_staff,
+            'is_superuser': user.is_superuser,
+            'last_login_0': user.last_login.strftime('%Y-%m-%d'),
+            'last_login_1': user.last_login.strftime('%H:%M:%S'),
+            'initial-last_login_0': user.last_login.strftime('%Y-%m-%d'),
+            'initial-last_login_1': user.last_login.strftime('%H:%M:%S'),
+            'date_joined_0': user.date_joined.strftime('%Y-%m-%d'),
+            'date_joined_1': user.date_joined.strftime('%H:%M:%S'),
+            'initial-date_joined_0': user.date_joined.strftime('%Y-%m-%d'),
+            'initial-date_joined_1': user.date_joined.strftime('%H:%M:%S'),
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+        }
 
     # #20078 - users shouldn't be allowed to guess password hashes via
     # repeated password__startswith queries.
     def test_changelist_disallows_password_lookups(self):
-        # Make me a superuser before loging in.
-        User.objects.filter(username='testclient').update(is_staff=True, is_superuser=True)
-        self.login()
-
         # A lookup that tries to filter on password isn't OK
         with patch_logger('django.security.DisallowedModelAdminLookup', 'error') as logger_calls:
             response = self.client.get('/admin/auth/user/?password__startswith=sha1$')
             self.assertEqual(response.status_code, 400)
             self.assertEqual(len(logger_calls), 1)
+
+    def test_user_change_email(self):
+        data = self.get_user_data(self.admin)
+        data['email'] = 'new_' + data['email']
+        response = self.client.post('/admin/auth/user/%s/' % self.admin.pk, data)
+        self.assertRedirects(response, '/admin/auth/user/')
+        row = LogEntry.objects.latest('id')
+        self.assertEqual(row.change_message, 'Changed email.')
+
+    def test_user_not_change(self):
+        response = self.client.post('/admin/auth/user/%s/' % self.admin.pk,
+            self.get_user_data(self.admin)
+        )
+        self.assertRedirects(response, '/admin/auth/user/')
+        row = LogEntry.objects.latest('id')
+        self.assertEqual(row.change_message, 'No fields changed.')
+
+    def test_user_change_password(self):
+        response = self.client.post('/admin/auth/user/%s/password/' % self.admin.pk, {
+            'password1': 'password1',
+            'password2': 'password1',
+        })
+        self.assertRedirects(response, '/admin/auth/user/%s/' % self.admin.pk)
+        row = LogEntry.objects.latest('id')
+        self.assertEqual(row.change_message, 'Changed password.')
+        self.logout()
+        self.login(password='password1')

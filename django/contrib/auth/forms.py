@@ -1,7 +1,5 @@
 from __future__ import unicode_literals
 
-import warnings
-
 from django import forms
 from django.forms.util import flatatt
 from django.template import loader
@@ -200,10 +198,6 @@ class AuthenticationForm(forms.Form):
                 )
         return self.cleaned_data
 
-    def check_for_test_cookie(self):
-        warnings.warn("check_for_test_cookie is deprecated; ensure your login "
-                "view is CSRF-protected.", DeprecationWarning)
-
     def get_user_id(self):
         if self.user_cache:
             return self.user_cache.id
@@ -356,3 +350,11 @@ class AdminPasswordChangeForm(forms.Form):
         if commit:
             self.user.save()
         return self.user
+
+    def _get_changed_data(self):
+        data = super(AdminPasswordChangeForm, self).changed_data
+        for name in self.fields.keys():
+            if name not in data:
+                return []
+        return ['password']
+    changed_data = property(_get_changed_data)

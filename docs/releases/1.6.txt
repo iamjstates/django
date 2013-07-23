@@ -41,9 +41,9 @@ Simplified default project and app templates
 The default templates used by :djadmin:`startproject` and :djadmin:`startapp`
 have been simplified and modernized. The :doc:`admin
 </ref/contrib/admin/index>` is now enabled by default in new projects; the
-:doc:`sites </ref/contrib/sites>` framework no longer is. :ref:`Language
-detection <how-django-discovers-language-preference>` and :ref:`clickjacking
-prevention <clickjacking-prevention>` are turned on.
+:doc:`sites </ref/contrib/sites>` framework no longer is. :ref:`clickjacking
+prevention <clickjacking-prevention>` is now on and the database defaults to
+SQLite.
 
 If the default templates don't suit your tastes, you can use :ref:`custom
 project and app templates <custom-app-and-project-templates>`.
@@ -124,7 +124,7 @@ be customized to use any other JS framework.
 ``check`` management command added for verifying compatibility
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A ``check`` management command was added, enabling you to verify if your
+A :djadmin:`check` management command was added, enabling you to verify if your
 current configuration (currently oriented at settings) is compatible with the
 current version of Django.
 
@@ -198,6 +198,10 @@ Minor features
 
 * The admin list columns have a ``column-<field_name>`` class in the HTML
   so the columns header can be styled with CSS, e.g. to set a column width.
+
+* Some admin templates now have ``app-<app_name>`` and ``model-<model_name>``
+  classes in their ``<body>`` tag to allow customizing the CSS per app or per
+  model.
 
 * The :ref:`isolation level<database-isolation-level>` can be customized under
   PostgreSQL.
@@ -336,6 +340,12 @@ Minor features
   :attr:`FormMixin.prefix<django.views.generic.edit.FormMixin.prefix>` by
   default) to allow customizing the :attr:`~django.forms.Form.prefix` of the
   form.
+
+* Raw queries (``Manager.raw()`` or ``cursor.execute()``) can now use the
+  "pyformat" parameter style, where placeholders in the query are given as
+  ``'%(name)s'`` and the parameters are passed as a dictionary rather than
+  a list (except on SQLite). This has long been possible (but not officially
+  supported) on MySQL and PostgreSQL, and is now also available on Oracle.
 
 Backwards incompatible changes in 1.6
 =====================================
@@ -628,10 +638,10 @@ If you manually render ``label_tag`` in your templates:
 
     {{ form.my_field.label_tag }}: {{ form.my_field }}
 
-you'll want to remove the semicolon (or whatever other separator you may be
+you'll want to remove the colon (or whatever other separator you may be
 using) to avoid duplicating it when upgrading to Django 1.6. The following
 template in Django 1.6 will render identically to the above template in Django
-1.5, except that the semicolon will appear inside the ``<label>`` element.
+1.5, except that the colon will appear inside the ``<label>`` element.
 
 .. code-block:: html+django
 
@@ -756,7 +766,7 @@ Miscellaneous
   ``{{ obj.view_href }}`` will cause template rendering to fail if
   ``view_href()`` raises ``NoReverseMatch``. There is no change to the
   ``{% url %}`` tag, it causes template rendering to fail like always when
-  ``NoReverseMatch`` is risen.
+  ``NoReverseMatch`` is raised.
 
 * :meth:`django.test.client.Client.logout` now calls
   :meth:`django.contrib.auth.logout` which will send the

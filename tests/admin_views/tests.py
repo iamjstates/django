@@ -4,6 +4,7 @@ from __future__ import absolute_import, unicode_literals
 import os
 import re
 import datetime
+import unittest
 try:
     from urllib.parse import urljoin
 except ImportError:  # Python 2
@@ -15,6 +16,7 @@ from django.core.files import temp as tempfile
 from django.core.urlresolvers import reverse
 # Register auth models with the admin.
 from django.contrib import admin
+from django.contrib.auth import get_permission_codename
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib.admin.models import LogEntry, DELETION
 from django.contrib.admin.sites import LOGIN_FORM_KEY
@@ -24,13 +26,13 @@ from django.contrib.admin.tests import AdminSeleniumWebDriverTestCase
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.models import Group, User, Permission
 from django.contrib.contenttypes.models import ContentType
-from django.core.urlresolvers import reverse
 from django.db import connection
 from django.forms.util import ErrorList
 from django.template.response import TemplateResponse
 from django.test import TestCase
 from django.test.utils import patch_logger
-from django.utils import formats, translation, unittest
+from django.utils import formats
+from django.utils import translation
 from django.utils.cache import get_max_age
 from django.utils.encoding import iri_to_uri, force_bytes
 from django.utils.html import escape
@@ -50,6 +52,7 @@ from .models import (Article, BarAccount, CustomArticle, EmptyModel, FooAccount,
     AdminOrderedModelMethod, AdminOrderedAdminMethod, AdminOrderedCallable,
     Report, MainPrepopulated, RelatedPrepopulated, UnorderedObject,
     Simple, UndeletableObject, Choice, ShortMessage, Telegram)
+from .admin import site, site2
 
 
 ERROR_MESSAGE = "Please enter the correct username and password \
@@ -57,7 +60,7 @@ for a staff account. Note that both fields may be case-sensitive."
 
 
 @override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',))
-class AdminViewBasicTest(TestCase):
+class AdminViewBasicTestCase(TestCase):
     fixtures = ['admin-views-users.xml', 'admin-views-colors.xml',
                 'admin-views-fabrics.xml', 'admin-views-books.xml']
 
@@ -92,6 +95,7 @@ class AdminViewBasicTest(TestCase):
             failing_msg
         )
 
+class AdminViewBasicTest(AdminViewBasicTestCase):
     def testTrailingSlashRequired(self):
         """
         If you leave off the trailing slash, app should redirect and add it.
@@ -583,6 +587,14 @@ class AdminViewBasicTest(TestCase):
         response = self.client.get("/test_admin/admin/admin_views/inquisition/?leader__name=Palin&leader__age=27")
         self.assertEqual(response.status_code, 200)
 
+    def test_popup_dismiss_related(self):
+        """
+        Regression test for ticket 20664 - ensure the pk is properly quoted.
+        """
+        actor = Actor.objects.create(name="Palin", age=27)
+        response = self.client.get("/test_admin/admin/admin_views/actor/?%s" % IS_POPUP_VAR)
+        self.assertContains(response, "opener.dismissRelatedLookupPopup(window, &#39;%s&#39;)" % actor.pk)
+
     def test_hide_change_password(self):
         """
         Tests if the "change password" link in the admin is hidden if the User
@@ -753,7 +765,7 @@ class SaveAsTests(TestCase):
         self.assertEqual(response.context['form_url'], '/test_admin/admin/admin_views/person/add/')
 
 
-class CustomModelAdminTest(AdminViewBasicTest):
+class CustomModelAdminTest(AdminViewBasicTestCase):
     urls = "admin_views.urls"
     urlbit = "admin2"
 
@@ -845,20 +857,20 @@ class AdminViewPermissionsTest(TestCase):
         # User who can add Articles
         add_user = User.objects.get(username='adduser')
         add_user.user_permissions.add(get_perm(Article,
-            opts.get_add_permission()))
+            get_permission_codename('add', opts)))
 
         # User who can change Articles
         change_user = User.objects.get(username='changeuser')
         change_user.user_permissions.add(get_perm(Article,
-            opts.get_change_permission()))
+            get_permission_codename('change', opts)))
 
         # User who can delete Articles
         delete_user = User.objects.get(username='deleteuser')
         delete_user.user_permissions.add(get_perm(Article,
-            opts.get_delete_permission()))
+            get_permission_codename('delete', opts)))
 
         delete_user.user_permissions.add(get_perm(Section,
-            Section._meta.get_delete_permission()))
+            get_permission_codename('delete', Section._meta)))
 
         # login POST dicts
         self.super_login = {
@@ -1201,7 +1213,7 @@ class AdminViewPermissionsTest(TestCase):
         # Allow the add user to add sections too. Now they can see the "add
         # section" link.
         add_user = User.objects.get(username='adduser')
-        perm = get_perm(Section, Section._meta.get_add_permission())
+        perm = get_perm(Section, get_permission_codename('add', Section._meta))
         add_user.user_permissions.add(perm)
         response = self.client.get(url)
         self.assertContains(response, add_link_text)
@@ -1306,7 +1318,7 @@ class AdminViewsNoUrlTest(TestCase):
         # User who can change Reports
         change_user = User.objects.get(username='changeuser')
         change_user.user_permissions.add(get_perm(Report,
-            opts.get_change_permission()))
+            get_permission_codename('change', opts)))
 
         # login POST dict
         self.changeuser_login = {
@@ -1363,7 +1375,7 @@ class AdminViewDeletedObjectsTest(TestCase):
         self.client.logout()
         delete_user = User.objects.get(username='deleteuser')
         delete_user.user_permissions.add(get_perm(Plot,
-            Plot._meta.get_delete_permission()))
+            get_permission_codename('delete', Plot._meta)))
 
         self.assertTrue(self.client.login(username='deleteuser',
                                           password='secret'))
@@ -3812,6 +3824,59 @@ class CSSTest(TestCase):
         self.assertContains(response, '<tr class="model-actor">')
         self.assertContains(response, '<tr class="model-album">')
 
+    def testAppModelInFormBodyClass(self):
+        """
+        Ensure app and model tag are correcly read by change_form template
+        """
+        response = self.client.get('/test_admin/admin/admin_views/section/add/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response,
+            '<body class="app-admin_views model-section ')
+
+    def testAppModelInListBodyClass(self):
+        """
+        Ensure app and model tag are correcly read by change_list template
+        """
+        response = self.client.get('/test_admin/admin/admin_views/section/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response,
+            '<body class="app-admin_views model-section ')
+
+    def testAppModelInDeleteConfirmationBodyClass(self):
+        """
+        Ensure app and model tag are correcly read by delete_confirmation
+        template
+        """
+        response = self.client.get(
+            '/test_admin/admin/admin_views/section/1/delete/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response,
+            '<body class="app-admin_views model-section ')
+
+    def testAppModelInAppIndexBodyClass(self):
+        """
+        Ensure app and model tag are correcly read by app_index template
+        """
+        response = self.client.get('/test_admin/admin/admin_views/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<body class="app-admin_views ')
+
+    def testAppModelInDeleteSelectedConfirmationBodyClass(self):
+        """
+        Ensure app and model tag are correcly read by
+        delete_selected_confirmation template
+        """
+        action_data = {
+            ACTION_CHECKBOX_NAME: [1],
+            'action': 'delete_selected',
+            'index': 0,
+        }
+        response = self.client.post('/test_admin/admin/admin_views/section/',
+            action_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response,
+            '<body class="app-admin_views model-section ')
+
 try:
     import docutils
 except ImportError:
@@ -4174,6 +4239,7 @@ class AdminUserMessageTest(TestCase):
 class AdminKeepChangeListFiltersTests(TestCase):
     urls = "admin_views.urls"
     fixtures = ['admin-views-users.xml']
+    admin_site = site
 
     def setUp(self):
         self.client.login(username='super', password='secret')
@@ -4197,13 +4263,15 @@ class AdminKeepChangeListFiltersTests(TestCase):
 
     def get_changelist_url(self):
         return '%s?%s' % (
-            reverse('admin:auth_user_changelist'),
+            reverse('admin:auth_user_changelist',
+                    current_app=self.admin_site.name),
             self.get_changelist_filters_querystring(),
         )
 
     def get_add_url(self):
         return '%s?%s' % (
-            reverse('admin:auth_user_add'),
+            reverse('admin:auth_user_add',
+                    current_app=self.admin_site.name),
             self.get_preserved_filters_querystring(),
         )
 
@@ -4211,7 +4279,8 @@ class AdminKeepChangeListFiltersTests(TestCase):
         if user_id is None:
             user_id = self.get_sample_user_id()
         return "%s?%s" % (
-            reverse('admin:auth_user_change', args=(user_id,)),
+            reverse('admin:auth_user_change', args=(user_id,),
+                    current_app=self.admin_site.name),
             self.get_preserved_filters_querystring(),
         )
 
@@ -4219,7 +4288,8 @@ class AdminKeepChangeListFiltersTests(TestCase):
         if user_id is None:
             user_id = self.get_sample_user_id()
         return "%s?%s" % (
-            reverse('admin:auth_user_history', args=(user_id,)),
+            reverse('admin:auth_user_history', args=(user_id,),
+                    current_app=self.admin_site.name),
             self.get_preserved_filters_querystring(),
         )
 
@@ -4227,7 +4297,8 @@ class AdminKeepChangeListFiltersTests(TestCase):
         if user_id is None:
             user_id = self.get_sample_user_id()
         return "%s?%s" % (
-            reverse('admin:auth_user_delete', args=(user_id,)),
+            reverse('admin:auth_user_delete', args=(user_id,),
+                    current_app=self.admin_site.name),
             self.get_preserved_filters_querystring(),
         )
 
@@ -4321,3 +4392,6 @@ class AdminKeepChangeListFiltersTests(TestCase):
         # Test redirect on "Delete".
         response = self.client.post(self.get_delete_url(), {'post': 'yes'})
         self.assertRedirects(response, self.get_changelist_url())
+
+class NamespacedAdminKeepChangeListFiltersTests(AdminKeepChangeListFiltersTests):
+    admin_site = site2

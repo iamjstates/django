@@ -2,6 +2,7 @@ from __future__ import absolute_import, unicode_literals
 
 import datetime
 from decimal import Decimal
+import unittest
 
 from django import test
 from django import forms
@@ -9,7 +10,6 @@ from django.core.exceptions import ValidationError
 from django.db import connection, models, IntegrityError
 from django.db.models.fields.files import FieldFile
 from django.utils import six
-from django.utils import unittest
 
 from .models import (Foo, Bar, Whiz, BigD, BigS, Image, BigInt, Post,
     NullBooleanModel, BooleanModel, DataModel, Document, RenamedField,
@@ -432,6 +432,17 @@ class FileFieldTests(unittest.TestCase):
         field.save_form_data(d, 'else.txt')
         self.assertEqual(d.myfile, 'else.txt')
 
+    def test_delete_when_file_unset(self):
+        """
+        Calling delete on an unset FileField should not call the file deletion
+        process, but fail silently (#20660).
+        """
+        d = Document()
+        try:
+            d.myfile.delete()
+        except OSError:
+            self.fail("Deleting an unset FileField should not raise OSError.")
+
 
 class BinaryFieldTests(test.TestCase):
     binary_data = b'\x00\x46\xFE'
@@ -457,3 +468,16 @@ class BinaryFieldTests(test.TestCase):
     def test_max_length(self):
         dm = DataModel(short_data=self.binary_data*4)
         self.assertRaises(ValidationError, dm.full_clean)
+
+class GenericIPAddressFieldTests(test.TestCase):
+    def test_genericipaddressfield_formfield_protocol(self):
+        """
+        Test that GenericIPAddressField with a specified protocol does not
+        generate a formfield with no specified protocol. See #20740.
+        """
+        model_field = models.GenericIPAddressField(protocol='IPv4')
+        form_field = model_field.formfield()
+        self.assertRaises(ValidationError, form_field.clean, '::1')
+        model_field = models.GenericIPAddressField(protocol='IPv6')
+        form_field = model_field.formfield()
+        self.assertRaises(ValidationError, form_field.clean, '127.0.0.1')

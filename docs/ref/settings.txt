@@ -1055,6 +1055,26 @@ EMAIL_USE_TLS
 Default: ``False``
 
 Whether to use a TLS (secure) connection when talking to the SMTP server.
+This is used for explicit TLS connections, generally on port 587. If you are
+experiencing hanging connections, see the implicit TLS setting
+:setting:`EMAIL_USE_SSL`.
+
+.. setting:: EMAIL_USE_SSL
+
+EMAIL_USE_SSL
+-------------
+
+.. versionadded:: 1.7
+
+Default: ``False``
+
+Whether to use an implicit TLS (secure) connection when talking to the SMTP
+server. In most email documentation this type of TLS connection is referred
+to as SSL. It is generally used on port 465. If you are experiencing problems,
+see the explicit TLS setting :setting:`EMAIL_USE_TLS`.
+
+Note that :setting:`EMAIL_USE_TLS`/:setting:`EMAIL_USE_SSL` are mutually
+exclusive, so only set one of those settings to ``True``.
 
 .. setting:: FILE_CHARSET
 
@@ -1350,15 +1370,21 @@ A data structure containing configuration information. The contents of
 this data structure will be passed as the argument to the
 configuration method described in :setting:`LOGGING_CONFIG`.
 
-The default logging configuration passes HTTP 500 server errors to an
-email log handler; all other log messages are given to a NullHandler.
+Among other things, the default logging configuration passes HTTP 500 server
+errors to an email log handler when :setting:`DEBUG` is ``False``. See also
+:ref:`configuring-logging`.
+
+You can see the default logging configuration by looking in
+``django/utils/log.py`` (or view the `online source`__).
+
+__ https://github.com/django/django/blob/master/django/utils/log.py
 
 .. setting:: LOGGING_CONFIG
 
 LOGGING_CONFIG
 --------------
 
-Default: ``'django.utils.log.dictConfig'``
+Default: ``'logging.config.dictConfig'``
 
 A path to a callable that will be used to configure logging in the
 Django project. Points at a instance of Python's `dictConfig`_
@@ -1366,6 +1392,10 @@ configuration method by default.
 
 If you set :setting:`LOGGING_CONFIG` to ``None``, the logging
 configuration process will be skipped.
+
+.. versionchanged:: 1.7
+
+    Previously, the default value was ``'django.utils.log.dictConfig'``.
 
 .. _dictConfig: http://docs.python.org/library/logging.config.html#configuration-dictionary-schema
 
@@ -2043,22 +2073,6 @@ A tuple of authentication backend classes (as strings) to use when attempting to
 authenticate a user. See the :ref:`authentication backends documentation
 <authentication-backends>` for details.
 
-.. setting:: AUTH_PROFILE_MODULE
-
-AUTH_PROFILE_MODULE
--------------------
-
-.. deprecated:: 1.5
-    With the introduction of :ref:`custom User models <auth-custom-user>`,
-    the use of :setting:`AUTH_PROFILE_MODULE` to define a single profile
-    model is no longer supported. See the
-    :doc:`Django 1.5 release notes</releases/1.5>` for more information.
-
-Default: Not defined
-
-The site-specific user profile model used by this site. See
-:ref:`User profiles <auth-profiles>`.
-
 .. setting:: AUTH_USER_MODEL
 
 AUTH_USER_MODEL
@@ -2481,7 +2495,7 @@ URL to use when referring to static files located in :setting:`STATIC_ROOT`.
 Example: ``"/static/"`` or ``"http://static.example.com/"``
 
 If not ``None``, this will be used as the base path for
-:ref:`media definitions<form-media-paths>` and the
+:ref:`asset definitions<form-asset-paths>` (the ``Media`` class) and the
 :doc:`staticfiles app</ref/contrib/staticfiles>`.
 
 It must end in a slash if set to a non-empty value.

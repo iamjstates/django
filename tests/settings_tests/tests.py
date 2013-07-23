@@ -1,4 +1,5 @@
 import os
+import unittest
 import warnings
 
 from django.conf import settings, global_settings
@@ -6,7 +7,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpRequest
 from django.test import SimpleTestCase, TransactionTestCase, TestCase, signals
 from django.test.utils import override_settings
-from django.utils import unittest, six
+from django.utils import six
 
 
 @override_settings(TEST='override', TEST_OUTER='outer')
@@ -200,6 +201,29 @@ class SettingsTests(TestCase):
         """
         self.assertRaises(ValueError, setattr, settings,
             'ALLOWED_INCLUDE_ROOTS', '/var/www/ssi/')
+
+
+class TestComplexSettingOverride(TestCase):
+    def setUp(self):
+        self.old_warn_override_settings = signals.COMPLEX_OVERRIDE_SETTINGS.copy()
+        signals.COMPLEX_OVERRIDE_SETTINGS.add('TEST_WARN')
+
+    def tearDown(self):
+        signals.COMPLEX_OVERRIDE_SETTINGS = self.old_warn_override_settings
+        self.assertFalse('TEST_WARN' in signals.COMPLEX_OVERRIDE_SETTINGS)
+
+    def test_complex_override_warning(self):
+        """Regression test for #19031"""
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            override = override_settings(TEST_WARN='override')
+            override.enable()
+            self.assertEqual('override', settings.TEST_WARN)
+            override.disable()
+
+            self.assertEqual(len(w), 1)
+            self.assertEqual('Overriding setting TEST_WARN can lead to unexpected behaviour.', str(w[-1].message))
 
 
 class TrailingSlashURLTests(TestCase):

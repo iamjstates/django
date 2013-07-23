@@ -260,7 +260,7 @@ class ModelFormMetaclass(type):
                 warnings.warn("Creating a ModelForm without either the 'fields' attribute "
                               "or the 'exclude' attribute is deprecated - form %s "
                               "needs updating" % name,
-                              PendingDeprecationWarning, stacklevel=2)
+                              DeprecationWarning, stacklevel=2)
 
             if opts.fields == ALL_FIELDS:
                 # sentinel for fields_for_model to indicate "get the list of
@@ -292,7 +292,7 @@ class ModelFormMetaclass(type):
 
 class BaseModelForm(BaseForm):
     def __init__(self, data=None, files=None, auto_id='id_%s', prefix=None,
-                 initial=None, error_class=ErrorList, label_suffix=':',
+                 initial=None, error_class=ErrorList, label_suffix=None,
                  empty_permitted=False, instance=None):
         opts = self._meta
         if opts.model is None:
@@ -513,7 +513,7 @@ def modelform_factory(model, form=ModelForm, fields=None, exclude=None,
         getattr(Meta, 'exclude', None) is None):
         warnings.warn("Calling modelform_factory without defining 'fields' or "
                       "'exclude' explicitly is deprecated",
-                      PendingDeprecationWarning, stacklevel=2)
+                      DeprecationWarning, stacklevel=2)
 
     # Instatiate type(form) in order to use the same metaclass as form.
     return type(form)(class_name, (form,), form_class_attrs)
@@ -796,7 +796,7 @@ def modelformset_factory(model, form=ModelForm, formfield_callback=None,
         getattr(meta, 'exclude', exclude) is None):
         warnings.warn("Calling modelformset_factory without defining 'fields' or "
                       "'exclude' explicitly is deprecated",
-                      PendingDeprecationWarning, stacklevel=2)
+                      DeprecationWarning, stacklevel=2)
 
     form = modelform_factory(model, form=form, fields=fields, exclude=exclude,
                              formfield_callback=formfield_callback,
