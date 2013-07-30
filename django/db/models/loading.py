@@ -1,16 +1,16 @@
 "Utilities for loading models and the modules that contain them."
 
+import imp
+from importlib import import_module
+import os
+import sys
+
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.datastructures import SortedDict
-from django.utils.importlib import import_module
 from django.utils.module_loading import module_has_submodule
 from django.utils._os import upath
 from django.utils import six
-
-import imp
-import sys
-import os
 
 __all__ = ('get_apps', 'get_app', 'get_models', 'get_model', 'register_models',
         'load_app', 'app_cache_ready')
@@ -100,7 +100,7 @@ class AppCache(object):
         self.nesting_level += 1
         app_module = import_module(app_name)
         try:
-            models = import_module('.' + MODELS_MODULE_NAME, app_name)
+            models = import_module('%s.%s' % (app_name, MODELS_MODULE_NAME))
         except ImportError:
             self.nesting_level -= 1
             # If the app doesn't have a models module, we can just ignore the
@@ -154,6 +154,16 @@ class AppCache(object):
 
         return [elt[0] for elt in apps]
 
+    def _get_app_path(self, app):
+        if hasattr(app, '__path__'):        # models/__init__.py package
+            app_path = app.__path__[0]
+        else:                               # models.py module
+            app_path = app.__file__
+        return os.path.dirname(upath(app_path))
+
+    def get_app_path(self, app_label):
+        return self._get_app_path(self.get_app(app_label))
+
     def get_app_paths(self):
         """
         Returns a list of paths to all installed apps.
@@ -165,10 +175,7 @@ class AppCache(object):
 
         app_paths = []
         for app in self.get_apps():
-            if hasattr(app, '__path__'):        # models/__init__.py package
-                app_paths.extend([upath(path) for path in app.__path__])
-            else:                               # models.py module
-                app_paths.append(upath(app.__file__))
+            app_paths.append(self._get_app_path(app))
         return app_paths
 
     def get_app(self, app_label, emptyOK=False):
@@ -321,6 +328,7 @@ cache = AppCache()
 # These methods were always module level, so are kept that way for backwards
 # compatibility.
 get_apps = cache.get_apps
+get_app_path = cache.get_app_path
 get_app_paths = cache.get_app_paths
 get_app = cache.get_app
 get_app_errors = cache.get_app_errors

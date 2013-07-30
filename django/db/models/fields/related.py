@@ -1060,7 +1060,7 @@ class ForeignObject(RelatedField):
                 value_list = []
                 for source in sources:
                     # Account for one-to-one relations when sent a different model
-                    while not isinstance(value, source.model):
+                    while not isinstance(value, source.model) and source.rel:
                         source = source.rel.to._meta.get_field(source.rel.field_name)
                     value_list.append(getattr(value, source.attname))
                 return tuple(value_list)
@@ -1125,7 +1125,7 @@ class ForeignObject(RelatedField):
 class ForeignKey(ForeignObject):
     empty_strings_allowed = False
     default_error_messages = {
-        'invalid': _('Model %(model)s with pk %(pk)r does not exist.')
+        'invalid': _('%(model)s instance with pk %(pk)r does not exist.')
     }
     description = _("Foreign Key (type determined by related field)")
 

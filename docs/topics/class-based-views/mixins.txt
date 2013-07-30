@@ -170,7 +170,7 @@ being taken from the
 :attr:`~django.views.generic.list.MultipleObjectTemplateResponseMixin.template_name_suffix`
 attribute. (The date based generic views use suffixes such as ``_archive``,
 ``_archive_year`` and so on to use different templates for the various
-specialised date-based list views.)
+specialized date-based list views.)
 
 Using Django's class-based view mixins
 ======================================
@@ -345,7 +345,7 @@ The ``paginate_by`` is deliberately small in the example so you don't
 have to create lots of books to see the pagination working! Here's the
 template you'd want to use:
 
-.. code-block: html+django
+.. code-block:: html+django
 
     {% extends "base.html" %}
 
