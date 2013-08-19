@@ -45,8 +45,11 @@ urlpatterns = patterns('',
 
     # a view that raises an exception for the debug view
     (r'raises/$', views.raises),
-    (r'raises404/$', views.raises404),
+
+    (r'raises400/$', views.raises400),
     (r'raises403/$', views.raises403),
+    (r'raises404/$', views.raises404),
+    (r'raises500/$', views.raises500),
 
     # i18n views
     (r'^i18n/', include('django.conf.urls.i18n')),

@@ -140,15 +140,19 @@ attributes on your model if desired. For instance, you could use it to
 automatically provide a value for a field, or to do validation that requires
 access to more than a single field::
 
-    def clean(self):
-        import datetime
-        from django.core.exceptions import ValidationError
-        # Don't allow draft entries to have a pub_date.
-        if self.status == 'draft' and self.pub_date is not None:
-            raise ValidationError('Draft entries may not have a publication date.')
-        # Set the pub_date for published items if it hasn't been set already.
-        if self.status == 'published' and self.pub_date is None:
-            self.pub_date = datetime.date.today()
+    import datetime
+    from django.core.exceptions import ValidationError
+    from django.db import models
+
+    class Article(models.Model):
+        ...
+        def clean(self):
+            # Don't allow draft entries to have a pub_date.
+            if self.status == 'draft' and self.pub_date is not None:
+                raise ValidationError('Draft entries may not have a publication date.')
+            # Set the pub_date for published items if it hasn't been set already.
+            if self.status == 'published' and self.pub_date is None:
+                self.pub_date = datetime.date.today()
 
 Any :exc:`~django.core.exceptions.ValidationError` exceptions raised by
 ``Model.clean()`` will be stored in a special key error dictionary key,
@@ -384,8 +388,6 @@ For more details, see the documentation on :ref:`F() expressions
 Specifying which fields to save
 -------------------------------
 
-.. versionadded:: 1.5
-
 If ``save()`` is passed a list of field names in keyword argument
 ``update_fields``, only the fields named in that list will be updated.
 This may be desirable if you want to update just one or a few fields on
@@ -489,6 +491,40 @@ using ``__str__()`` like this::
             # Note use of django.utils.encoding.force_bytes() here because
             # first_name and last_name will be unicode strings.
             return force_bytes('%s %s' % (self.first_name, self.last_name))
+
+``__eq__``
+----------
+
+.. method:: Model.__eq__()
+
+The equality method is defined such that instances with the same primary
+key value and the same concrete class are considered equal. For proxy
+models, concrete class is defined as the model's first non-proxy parent;
+for all other models it is simply the model's class.
+
+For example::
+
+    form django.db import models
+
+    class MyModel(models.Model):
+        id = models.AutoField(primary_key=True)
+
+    class MyProxyModel(MyModel):
+        class Meta:
+            proxy = True
+
+    class MultitableInherited(MyModel):
+        pass
+
+    MyModel(id=1) == MyModel(id=1)
+    MyModel(id=1) == MyProxyModel(id=1)
+    MyModel(id=1) != MultitableInherited(id=1)
+    MyModel(id=1) != MyModel(id=2)
+
+.. versionchanged:: 1.7
+
+  In previous versions only instances of the exact same class and same
+  primary key value were considered equal.
 
 ``get_absolute_url``
 --------------------

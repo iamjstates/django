@@ -9,6 +9,9 @@ from django.utils.translation import activate
 from django.core.exceptions import FieldError
 from django import forms
 
+# Note that these tests are testing internal implementation details.
+# ForeignObject is not part of public API.
+
 class MultiColumnFKTests(TestCase):
     def setUp(self):
         # Creating countries
@@ -129,7 +132,6 @@ class MultiColumnFKTests(TestCase):
             ],
             attrgetter('person_id')
         )
-
         self.assertQuerysetEqual(
             Membership.objects.filter(person__in=Person.objects.filter(name='Jim')), [
                 self.jim.id,
@@ -137,14 +139,32 @@ class MultiColumnFKTests(TestCase):
             attrgetter('person_id')
         )
 
+    def test_double_nested_query(self):
+        m1 = Membership.objects.create(membership_country_id=self.usa.id, person_id=self.bob.id,
+                                       group_id=self.cia.id)
+        m2 = Membership.objects.create(membership_country_id=self.usa.id, person_id=self.jim.id,
+                                       group_id=self.cia.id)
+        Friendship.objects.create(from_friend_country_id=self.usa.id, from_friend_id=self.bob.id,
+                                  to_friend_country_id=self.usa.id, to_friend_id=self.jim.id)
+        self.assertQuerysetEqual(Membership.objects.filter(
+            person__in=Person.objects.filter(
+                from_friend__in=Friendship.objects.filter(
+                    to_friend__in=Person.objects.all()))),
+            [m1], lambda x: x)
+        self.assertQuerysetEqual(Membership.objects.exclude(
+            person__in=Person.objects.filter(
+                from_friend__in=Friendship.objects.filter(
+                    to_friend__in=Person.objects.all()))),
+            [m2], lambda x: x)
+
     def test_select_related_foreignkey_forward_works(self):
         Membership.objects.create(membership_country=self.usa, person=self.bob, group=self.cia)
         Membership.objects.create(membership_country=self.usa, person=self.jim, group=self.democrat)
 
         with self.assertNumQueries(1):
-            people = [m.person for m in Membership.objects.select_related('person')]
+            people = [m.person for m in Membership.objects.select_related('person').order_by('pk')]
 
-        normal_people = [m.person for m in Membership.objects.all()]
+        normal_people = [m.person for m in Membership.objects.all().order_by('pk')]
         self.assertEqual(people, normal_people)
 
     def test_prefetch_foreignkey_forward_works(self):
@@ -152,19 +172,22 @@ class MultiColumnFKTests(TestCase):
         Membership.objects.create(membership_country=self.usa, person=self.jim, group=self.democrat)
 
         with self.assertNumQueries(2):
-            people = [m.person for m in Membership.objects.prefetch_related('person')]
+            people = [
+                m.person for m in Membership.objects.prefetch_related('person').order_by('pk')]
 
-        normal_people = [m.person for m in Membership.objects.all()]
+        normal_people = [m.person for m in Membership.objects.order_by('pk')]
         self.assertEqual(people, normal_people)
 
     def test_prefetch_foreignkey_reverse_works(self):
         Membership.objects.create(membership_country=self.usa, person=self.bob, group=self.cia)
         Membership.objects.create(membership_country=self.usa, person=self.jim, group=self.democrat)
         with self.assertNumQueries(2):
-            membership_sets = [list(p.membership_set.all())
-                               for p in Person.objects.prefetch_related('membership_set')]
+            membership_sets = [
+                list(p.membership_set.all())
+                for p in Person.objects.prefetch_related('membership_set').order_by('pk')]
 
-        normal_membership_sets = [list(p.membership_set.all()) for p in Person.objects.all()]
+        normal_membership_sets = [list(p.membership_set.all())
+                                  for p in Person.objects.order_by('pk')]
         self.assertEqual(membership_sets, normal_membership_sets)
 
     def test_m2m_through_forward_returns_valid_members(self):

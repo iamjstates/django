@@ -639,19 +639,10 @@ that were modified more than 3 days after they were published::
     >>> from datetime import timedelta
     >>> Entry.objects.filter(mod_date__gt=F('pub_date') + timedelta(days=3))
 
-.. versionadded:: 1.5
-
-    ``.bitand()`` and ``.bitor()``
-
-The ``F()`` objects now support bitwise operations by ``.bitand()`` and
+The ``F()`` objects support bitwise operations by ``.bitand()`` and
 ``.bitor()``, for example::
 
     >>> F('somefield').bitand(16)
-
-.. versionchanged:: 1.5
-
-    The previously undocumented operators ``&`` and ``|`` no longer produce
-    bitwise operations, use ``.bitand()`` and ``.bitor()`` instead.
 
 The pk lookup shortcut
 ----------------------
@@ -720,7 +711,7 @@ efficient code.
 In a newly created :class:`~django.db.models.query.QuerySet`, the cache is
 empty. The first time a :class:`~django.db.models.query.QuerySet` is evaluated
 -- and, hence, a database query happens -- Django saves the query results in
-the :class:`~django.db.models.query.QuerySet`\'s cache and returns the results
+the :class:`~django.db.models.query.QuerySet`’s cache and returns the results
 that have been explicitly requested (e.g., the next element, if the
 :class:`~django.db.models.query.QuerySet` is being iterated over). Subsequent
 evaluations of the :class:`~django.db.models.query.QuerySet` reuse the cached
