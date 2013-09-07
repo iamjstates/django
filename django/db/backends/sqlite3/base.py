@@ -18,6 +18,7 @@ from django.db.backends import (util, BaseDatabaseFeatures,
 from django.db.backends.sqlite3.client import DatabaseClient
 from django.db.backends.sqlite3.creation import DatabaseCreation
 from django.db.backends.sqlite3.introspection import DatabaseIntrospection
+from django.db.backends.sqlite3.schema import DatabaseSchemaEditor
 from django.db.models import fields
 from django.db.models.sql import aggregates
 from django.utils.dateparse import parse_date, parse_datetime, parse_time
@@ -83,8 +84,9 @@ Database.register_converter(str("decimal"), decoder(util.typecast_decimal))
 
 Database.register_adapter(datetime.datetime, adapt_datetime_with_timezone_support)
 Database.register_adapter(decimal.Decimal, util.rev_typecast_decimal)
-Database.register_adapter(str, lambda s: s.decode('utf-8'))
-Database.register_adapter(SafeBytes, lambda s: s.decode('utf-8'))
+if six.PY2:
+    Database.register_adapter(str, lambda s: s.decode('utf-8'))
+    Database.register_adapter(SafeBytes, lambda s: s.decode('utf-8'))
 
 
 class DatabaseFeatures(BaseDatabaseFeatures):
@@ -100,8 +102,11 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     supports_mixed_date_datetime_comparisons = False
     has_bulk_insert = True
     can_combine_inserts_with_and_without_auto_increment_pk = False
+    supports_foreign_keys = False
+    supports_check_constraints = False
     autocommits_when_autocommit_is_off = True
     supports_paramstyle_pyformat = False
+    supports_sequence_reset = False
 
     @cached_property
     def uses_savepoints(self):
@@ -208,6 +213,25 @@ class DatabaseOperations(BaseDatabaseOperations):
         if name.startswith('"') and name.endswith('"'):
             return name # Quoting once is enough.
         return '"%s"' % name
+
+    def quote_parameter(self, value):
+        # Inner import to allow nice failure for backend if not present
+        import _sqlite3
+        try:
+            value = _sqlite3.adapt(value)
+        except _sqlite3.ProgrammingError:
+            pass
+        # Manual emulation of SQLite parameter quoting
+        if isinstance(value, six.integer_types):
+            return str(value)
+        elif isinstance(value, six.string_types):
+            return six.text_type(value)
+        elif isinstance(value, type(True)):
+            return str(int(value))
+        elif value is None:
+            return "NULL"
+        else:
+            raise ValueError("Cannot quote parameter value %r" % value)
 
     def no_limit_value(self):
         return -1
@@ -431,6 +455,10 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         savepoints when autocommit is disabled.
         """
         self.cursor().execute("BEGIN")
+
+    def schema_editor(self, *args, **kwargs):
+        "Returns a new instance of this backend's SchemaEditor"
+        return DatabaseSchemaEditor(self, *args, **kwargs)
 
 FORMAT_QMARK_REGEX = re.compile(r'(?<!%)%s')
 

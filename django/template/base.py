@@ -88,8 +88,8 @@ class VariableDoesNotExist(Exception):
         self.params = params
 
     def __str__(self):
-        return self.msg % tuple([force_text(p, errors='replace')
-                                 for p in self.params])
+        return self.msg % tuple(force_text(p, errors='replace')
+                                 for p in self.params)
 
 class InvalidTemplateLibrary(Exception):
     pass
@@ -124,6 +124,7 @@ class Template(object):
             origin = StringOrigin(template_string)
         self.nodelist = compile_string(template_string, origin)
         self.name = name
+        self.origin = origin
 
     def __iter__(self):
         for node in self.nodelist:
@@ -1012,7 +1013,7 @@ def parse_bits(parser, bits, params, varargs, varkw, defaults,
         # Some positional arguments were not supplied
         raise TemplateSyntaxError(
             "'%s' did not receive value(s) for the argument(s): %s" %
-            (name, ", ".join(["'%s'" % p for p in unhandled_params])))
+            (name, ", ".join("'%s'" % p for p in unhandled_params)))
     return args, kwargs
 
 def generic_tag_compiler(parser, token, params, varargs, varkw, defaults,

@@ -88,11 +88,9 @@ your project's ``manage.py`` utility::
 
     $ ./manage.py test
 
-Test discovery is based on the unittest module's `built-in test discovery`.  By
-default, this will discover tests in any file named "test*.py" under the
-current working directory.
-
-.. _built-in test discovery: http://docs.python.org/2/library/unittest.html#test-discovery
+Test discovery is based on the unittest module's :py:ref:`built-in test
+discovery <unittest-test-discovery>`.  By default, this will discover tests in
+any file named "test*.py" under the current working directory.
 
 You can specify particular tests to run by supplying any number of "test
 labels" to ``./manage.py test``. Each test label can be a full Python dotted
@@ -1041,11 +1039,25 @@ out the `full reference`_ for more details.
 .. _full reference: http://selenium-python.readthedocs.org/en/latest/api.html
 .. _Firefox: http://www.mozilla.com/firefox/
 
-.. note::
+.. versionchanged:: 1.7
 
-    ``LiveServerTestCase`` makes use of the :doc:`staticfiles contrib app
-    </howto/static-files/index>` so you'll need to have your project configured
-    accordingly (in particular by setting :setting:`STATIC_URL`).
+    Before Django 1.7 ``LiveServerTestCase`` used to rely on the
+    :doc:`staticfiles contrib app </howto/static-files/index>` to get the
+    static assets of the application(s) under test transparently served at their
+    expected locations during the execution of these tests.
+
+    In Django 1.7 this dependency of core functionality on a ``contrib``
+    appplication has been removed, because of which ``LiveServerTestCase``
+    ability in this respect has been retrofitted to simply publish the contents
+    of the file system under :setting:`STATIC_ROOT` at the :setting:`STATIC_URL`
+    URL.
+
+    If you use the ``staticfiles`` app in your project and need to perform live
+    testing then you might want to consider using the
+    :class:`~django.contrib.staticfiles.testing.StaticLiveServerCase` subclass
+    shipped with it instead because it's the one that implements the original
+    behavior now. See :ref:`the relevant documentation
+    <staticfiles-testing-support>` for more details.
 
 .. note::
 
@@ -1170,9 +1182,9 @@ documentation<dumpdata>` for more details.
 
 .. note::
 
-    If you've ever run :djadmin:`manage.py syncdb<syncdb>`, you've
+    If you've ever run :djadmin:`manage.py migrate<migrate>`, you've
     already used a fixture without even knowing it! When you call
-    :djadmin:`syncdb` in the database for the first time, Django
+    :djadmin:`migrate` in the database for the first time, Django
     installs a fixture called ``initial_data``. This gives you a way
     of populating a new database with any initial data, such as a
     default set of categories.

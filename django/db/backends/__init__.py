@@ -521,6 +521,10 @@ class BaseDatabaseWrapper(object):
         """
         raise NotImplementedError
 
+    def schema_editor(self, *args, **kwargs):
+        "Returns a new instance of this backend's SchemaEditor"
+        raise NotImplementedError()
+
 
 class BaseDatabaseFeatures(object):
     allows_group_by_pk = False
@@ -630,10 +634,31 @@ class BaseDatabaseFeatures(object):
     # when autocommit is disabled? http://bugs.python.org/issue8145#msg109965
     autocommits_when_autocommit_is_off = False
 
+    # Can we roll back DDL in a transaction?
+    can_rollback_ddl = False
+
+    # Can we issue more than one ALTER COLUMN clause in an ALTER TABLE?
+    supports_combined_alters = False
+
+    # What's the maximum length for index names?
+    max_index_name_length = 63
+
+    # Does it support foreign keys?
+    supports_foreign_keys = True
+
+    # Does it support CHECK constraints?
+    supports_check_constraints = True
+
     # Does the backend support 'pyformat' style ("... %(name)s ...", {'name': value})
     # parameter passing? Note this can be provided by the backend even if not
     # supported by the Python driver
     supports_paramstyle_pyformat = True
+
+    # Does the backend require literal defaults, rather than parameterised ones?
+    requires_literal_defaults = False
+
+    # Does the backend require a connection reset after each material schema change?
+    connection_persists_old_columns = False
 
     def __init__(self, connection):
         self.connection = connection
@@ -703,7 +728,7 @@ class BaseDatabaseOperations(object):
 
     def cache_key_culling_sql(self):
         """
-        Returns a SQL query that retrieves the first cache key greater than the
+        Returns an SQL query that retrieves the first cache key greater than the
         n smallest.
 
         This is used by the 'db' cache backend to determine where to start
@@ -933,9 +958,18 @@ class BaseDatabaseOperations(object):
         """
         raise NotImplementedError()
 
+    def quote_parameter(self, value):
+        """
+        Returns a quoted version of the value so it's safe to use in an SQL
+        string. This should NOT be used to prepare SQL statements to send to
+        the database; it is meant for outputting SQL statements to a file
+        or the console for later execution by a developer/DBA.
+        """
+        raise NotImplementedError()
+
     def random_function_sql(self):
         """
-        Returns a SQL expression that returns a random value.
+        Returns an SQL expression that returns a random value.
         """
         return 'RANDOM()'
 
@@ -1227,10 +1261,10 @@ class BaseDatabaseIntrospection(object):
             for model in models.get_models(app):
                 if not model._meta.managed:
                     continue
-                if not router.allow_syncdb(self.connection.alias, model):
+                if not router.allow_migrate(self.connection.alias, model):
                     continue
                 tables.add(model._meta.db_table)
-                tables.update([f.m2m_db_table() for f in model._meta.local_many_to_many])
+                tables.update(f.m2m_db_table() for f in model._meta.local_many_to_many)
         tables = list(tables)
         if only_existing:
             existing_tables = self.table_names()
@@ -1247,7 +1281,7 @@ class BaseDatabaseIntrospection(object):
         all_models = []
         for app in models.get_apps():
             for model in models.get_models(app):
-                if router.allow_syncdb(self.connection.alias, model):
+                if router.allow_migrate(self.connection.alias, model):
                     all_models.append(model)
         tables = list(map(self.table_name_converter, tables))
         return set([
@@ -1268,7 +1302,7 @@ class BaseDatabaseIntrospection(object):
                     continue
                 if model._meta.swapped:
                     continue
-                if not router.allow_syncdb(self.connection.alias, model):
+                if not router.allow_migrate(self.connection.alias, model):
                     continue
                 for f in model._meta.local_fields:
                     if isinstance(f, models.AutoField):
@@ -1307,6 +1341,25 @@ class BaseDatabaseIntrospection(object):
              'unique': boolean representing whether it's a unique index}
 
         Only single-column indexes are introspected.
+        """
+        raise NotImplementedError
+
+    def get_constraints(self, cursor, table_name):
+        """
+        Retrieves any constraints or keys (unique, pk, fk, check, index)
+        across one or more columns.
+
+        Returns a dict mapping constraint names to their attributes,
+        where attributes is a dict with keys:
+         * columns: List of columns this covers
+         * primary_key: True if primary key, False otherwise
+         * unique: True if this is a unique constraint, False otherwise
+         * foreign_key: (table, column) of target, or None
+         * check: True if check constraint, False otherwise
+         * index: True if index, False otherwise.
+
+        Some backends may return special constraint names that don't exist
+        if they don't name constraints of a certain type (e.g. SQLite)
         """
         raise NotImplementedError
 

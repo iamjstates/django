@@ -2,7 +2,7 @@ from operator import attrgetter
 
 from django.db import connection, connections, router
 from django.db.backends import util
-from django.db.models import signals, get_model
+from django.db.models import signals
 from django.db.models.fields import (AutoField, Field, IntegerField,
     PositiveIntegerField, PositiveSmallIntegerField, FieldDoesNotExist)
 from django.db.models.related import RelatedObject, PathInfo
@@ -17,8 +17,6 @@ from django.core import exceptions
 from django import forms
 
 RECURSIVE_RELATIONSHIP_CONSTANT = 'self'
-
-pending_lookups = {}
 
 
 def add_lazy_relation(cls, field, relation, operation):
@@ -70,14 +68,14 @@ def add_lazy_relation(cls, field, relation, operation):
     # string right away. If get_model returns None, it means that the related
     # model isn't loaded yet, so we need to pend the relation until the class
     # is prepared.
-    model = get_model(app_label, model_name,
+    model = cls._meta.app_cache.get_model(app_label, model_name,
                       seed_cache=False, only_installed=False)
     if model:
         operation(field, model, cls)
     else:
         key = (app_label, model_name)
         value = (cls, field, operation)
-        pending_lookups.setdefault(key, []).append(value)
+        cls._meta.app_cache.pending_lookups.setdefault(key, []).append(value)
 
 
 def do_pending_lookups(sender, **kwargs):
@@ -85,7 +83,7 @@ def do_pending_lookups(sender, **kwargs):
     Handle any pending relations to the sending model. Sent from class_prepared.
     """
     key = (sender._meta.app_label, sender.__name__)
-    for cls, field, operation in pending_lookups.pop(key, []):
+    for cls, field, operation in sender._meta.app_cache.pending_lookups.pop(key, []):
         operation(field, sender, cls)
 
 signals.class_prepared.connect(do_pending_lookups)
@@ -229,7 +227,7 @@ class SingleRelatedObjectDescriptor(six.with_metaclass(RenameRelatedObjectDescri
                 if not router.allow_relation(value, instance):
                     raise ValueError('Cannot assign "%r": the current database router prevents this relation.' % value)
 
-        related_pk = tuple([getattr(instance, field.attname) for field in self.related.field.foreign_related_fields])
+        related_pk = tuple(getattr(instance, field.attname) for field in self.related.field.foreign_related_fields)
         if None in related_pk:
             raise ValueError('Cannot assign "%r": "%s" instance isn\'t saved in the database.' %
                                 (value, instance._meta.object_name))
@@ -543,8 +541,8 @@ def create_many_related_manager(superclass, rel):
                 ('_prefetch_related_val_%s' % f.attname,
                 '%s.%s' % (qn(join_table), qn(f.column))) for f in fk.local_related_fields))
             return (qs,
-                    lambda result: tuple([getattr(result, '_prefetch_related_val_%s' % f.attname) for f in fk.local_related_fields]),
-                    lambda inst: tuple([getattr(inst, f.attname) for f in fk.foreign_related_fields]),
+                    lambda result: tuple(getattr(result, '_prefetch_related_val_%s' % f.attname) for f in fk.local_related_fields),
+                    lambda inst: tuple(getattr(inst, f.attname) for f in fk.foreign_related_fields),
                     False,
                     self.prefetch_cache_name)
 
@@ -941,6 +939,8 @@ class ForeignObject(RelatedField):
     def resolve_related_fields(self):
         if len(self.from_fields) < 1 or len(self.from_fields) != len(self.to_fields):
             raise ValueError('Foreign Object from and to fields must be the same non-zero length')
+        if isinstance(self.rel.to, six.string_types):
+            raise ValueError('Related model %r cannot been resolved' % self.rel.to)
         related_fields = []
         for index in range(len(self.from_fields)):
             from_field_name = self.from_fields[index]
@@ -964,11 +964,11 @@ class ForeignObject(RelatedField):
 
     @property
     def local_related_fields(self):
-        return tuple([lhs_field for lhs_field, rhs_field in self.related_fields])
+        return tuple(lhs_field for lhs_field, rhs_field in self.related_fields)
 
     @property
     def foreign_related_fields(self):
-        return tuple([rhs_field for lhs_field, rhs_field in self.related_fields])
+        return tuple(rhs_field for lhs_field, rhs_field in self.related_fields)
 
     def get_local_related_value(self, instance):
         return self.get_instance_value_for_fields(instance, self.local_related_fields)
@@ -998,7 +998,7 @@ class ForeignObject(RelatedField):
 
     def get_joining_columns(self, reverse_join=False):
         source = self.reverse_related_fields if reverse_join else self.related_fields
-        return tuple([(lhs_field.column, rhs_field.column) for lhs_field, rhs_field in source])
+        return tuple((lhs_field.column, rhs_field.column) for lhs_field, rhs_field in source)
 
     def get_reverse_joining_columns(self):
         return self.get_joining_columns(reverse_join=True)
@@ -1105,10 +1105,10 @@ class ForeignObject(RelatedField):
 
     @property
     def attnames(self):
-        return tuple([field.attname for field in self.local_related_fields])
+        return tuple(field.attname for field in self.local_related_fields)
 
     def get_defaults(self):
-        return tuple([field.get_default() for field in self.local_related_fields])
+        return tuple(field.get_default() for field in self.local_related_fields)
 
     def contribute_to_class(self, cls, name, virtual_only=False):
         super(ForeignObject, self).contribute_to_class(cls, name, virtual_only=virtual_only)
@@ -1288,6 +1288,9 @@ class ForeignKey(ForeignObject):
             return IntegerField().db_type(connection=connection)
         return rel_field.db_type(connection=connection)
 
+    def db_parameters(self, connection):
+        return {"type": self.db_type(connection), "check": []}
+
 
 class OneToOneField(ForeignKey):
     """
@@ -1358,6 +1361,7 @@ def create_many_to_many_intermediary_model(field, klass):
         'unique_together': (from_, to),
         'verbose_name': '%(from)s-%(to)s relationship' % {'from': from_, 'to': to},
         'verbose_name_plural': '%(from)s-%(to)s relationships' % {'from': from_, 'to': to},
+        'app_cache': field.model._meta.app_cache,
     })
     # Construct and return the new class.
     return type(str(name), (models.Model,), {
@@ -1568,3 +1572,11 @@ class ManyToManyField(RelatedField):
                 initial = initial()
             defaults['initial'] = [i._get_pk_val() for i in initial]
         return super(ManyToManyField, self).formfield(**defaults)
+
+    def db_type(self, connection):
+        # A ManyToManyField is not represented by a single column,
+        # so return None.
+        return None
+
+    def db_parameters(self, connection):
+        return {"type": None, "check": None}

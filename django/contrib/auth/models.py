@@ -6,7 +6,6 @@ from django.core import validators
 from django.db import models
 from django.db.models.manager import EmptyManager
 from django.utils.crypto import get_random_string
-from django.utils.http import urlquote
 from django.utils import six
 from django.utils.translation import ugettext_lazy as _
 from django.utils import timezone
@@ -385,9 +384,6 @@ class AbstractUser(AbstractBaseUser, PermissionsMixin):
         verbose_name = _('user')
         verbose_name_plural = _('users')
         abstract = True
-
-    def get_absolute_url(self):
-        return "/users/%s/" % urlquote(self.username)
 
     def get_full_name(self):
         """
