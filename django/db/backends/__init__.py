@@ -14,7 +14,7 @@ from importlib import import_module
 from django.conf import settings
 from django.db import DEFAULT_DB_ALIAS
 from django.db.backends.signals import connection_created
-from django.db.backends import util
+from django.db.backends import utils
 from django.db.transaction import TransactionManagementError
 from django.db.utils import DatabaseErrorWrapper
 from django.utils.functional import cached_property
@@ -84,19 +84,19 @@ class BaseDatabaseWrapper(object):
 
     def get_connection_params(self):
         """Returns a dict of parameters suitable for get_new_connection."""
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseWrapper may require a get_connection_params() method')
 
     def get_new_connection(self, conn_params):
         """Opens a connection to the database."""
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseWrapper may require a get_new_connection() method')
 
     def init_connection_state(self):
         """Initializes the database connection settings."""
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseWrapper may require an init_connection_state() method')
 
     def create_cursor(self):
         """Creates a cursor. Assumes that a connection is established."""
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseWrapper may require a create_cursor() method')
 
     ##### Backend-specific methods for creating connections #####
 
@@ -122,29 +122,29 @@ class BaseDatabaseWrapper(object):
         Guarantees that a connection to the database is established.
         """
         if self.connection is None:
-            with self.wrap_database_errors():
+            with self.wrap_database_errors:
                 self.connect()
 
     ##### Backend-specific wrappers for PEP-249 connection methods #####
 
     def _cursor(self):
         self.ensure_connection()
-        with self.wrap_database_errors():
+        with self.wrap_database_errors:
             return self.create_cursor()
 
     def _commit(self):
         if self.connection is not None:
-            with self.wrap_database_errors():
+            with self.wrap_database_errors:
                 return self.connection.commit()
 
     def _rollback(self):
         if self.connection is not None:
-            with self.wrap_database_errors():
+            with self.wrap_database_errors:
                 return self.connection.rollback()
 
     def _close(self):
         if self.connection is not None:
-            with self.wrap_database_errors():
+            with self.wrap_database_errors:
                 return self.connection.close()
 
     ##### Generic wrappers for PEP-249 connection methods #####
@@ -158,7 +158,7 @@ class BaseDatabaseWrapper(object):
             (self.use_debug_cursor is None and settings.DEBUG)):
             cursor = self.make_debug_cursor(self._cursor())
         else:
-            cursor = util.CursorWrapper(self._cursor(), self)
+            cursor = utils.CursorWrapper(self._cursor(), self)
         return cursor
 
     def commit(self):
@@ -262,7 +262,7 @@ class BaseDatabaseWrapper(object):
         """
         Backend-specific implementation to enable or disable autocommit.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseWrapper may require a _set_autocommit() method')
 
     ##### Generic transaction management methods #####
 
@@ -440,7 +440,7 @@ class BaseDatabaseWrapper(object):
         Tests if the database connection is usable.
         This function may assume that self.connection is not None.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseWrapper may require an is_usable() method')
 
     def close_if_unusable_or_obsolete(self):
         """
@@ -484,6 +484,7 @@ class BaseDatabaseWrapper(object):
 
     ##### Miscellaneous #####
 
+    @cached_property
     def wrap_database_errors(self):
         """
         Context manager and decorator that re-throws backend-specific database
@@ -495,7 +496,7 @@ class BaseDatabaseWrapper(object):
         """
         Creates a cursor that logs all queries in self.queries.
         """
-        return util.CursorDebugWrapper(cursor, self)
+        return utils.CursorDebugWrapper(cursor, self)
 
     @contextmanager
     def temporary_connection(self):
@@ -519,11 +520,11 @@ class BaseDatabaseWrapper(object):
         """
         Only required when autocommits_when_autocommit_is_off = True.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseWrapper may require a _start_transaction_under_autocommit() method')
 
     def schema_editor(self, *args, **kwargs):
         "Returns a new instance of this backend's SchemaEditor"
-        raise NotImplementedError()
+        raise NotImplementedError('subclasses of BaseDatabaseWrapper may require a schema_editor() method')
 
 
 class BaseDatabaseFeatures(object):
@@ -626,6 +627,9 @@ class BaseDatabaseFeatures(object):
     # Every database can do this reliably, except MySQL,
     # which can't do it for MyISAM tables
     can_introspect_foreign_keys = True
+
+    # Can the backend introspect an AutoField, instead of an IntegerField?
+    can_introspect_autofield = False
 
     # Support for the DISTINCT ON clause
     can_distinct_on_fields = False
@@ -741,13 +745,13 @@ class BaseDatabaseOperations(object):
         Given a lookup_type of 'year', 'month' or 'day', returns the SQL that
         extracts a value from the given date field field_name.
         """
-        raise NotImplementedError()
+        raise NotImplementedError('subclasses of BaseDatabaseOperations may require a date_extract_sql() method')
 
     def date_interval_sql(self, sql, connector, timedelta):
         """
         Implements the date interval functionality for expressions
         """
-        raise NotImplementedError()
+        raise NotImplementedError('subclasses of BaseDatabaseOperations may require a date_interval_sql() method')
 
     def date_trunc_sql(self, lookup_type, field_name):
         """
@@ -755,7 +759,7 @@ class BaseDatabaseOperations(object):
         truncates the given date field field_name to a date object with only
         the given specificity.
         """
-        raise NotImplementedError()
+        raise NotImplementedError('subclasses of BaseDatabaseOperations may require a datetrunc_sql() method')
 
     def datetime_cast_sql(self):
         """
@@ -772,7 +776,7 @@ class BaseDatabaseOperations(object):
         'second', returns the SQL that extracts a value from the given
         datetime field field_name, and a tuple of parameters.
         """
-        raise NotImplementedError()
+        raise NotImplementedError('subclasses of BaseDatabaseOperations may require a datetime_extract_sql() method')
 
     def datetime_trunc_sql(self, lookup_type, field_name, tzname):
         """
@@ -781,7 +785,7 @@ class BaseDatabaseOperations(object):
         field_name to a datetime object with only the given specificity, and
         a tuple of parameters.
         """
-        raise NotImplementedError()
+        raise NotImplementedError('subclasses of BaseDatabaseOperations may require a datetime_trunk_sql() method')
 
     def deferrable_sql(self):
         """
@@ -916,7 +920,7 @@ class BaseDatabaseOperations(object):
         Returns the value to use for the LIMIT when we are wanting "LIMIT
         infinity". Returns None if the limit clause can be omitted in this case.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseOperations may require a no_limit_value() method')
 
     def pk_default_value(self):
         """
@@ -956,7 +960,7 @@ class BaseDatabaseOperations(object):
         Returns a quoted version of the given table, index or column name. Does
         not quote the given name if it's already been quoted.
         """
-        raise NotImplementedError()
+        raise NotImplementedError('subclasses of BaseDatabaseOperations may require a quote_name() method')
 
     def quote_parameter(self, value):
         """
@@ -982,7 +986,7 @@ class BaseDatabaseOperations(object):
         If the feature is not supported (or part of it is not supported), a
         NotImplementedError exception can be raised.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseOperations may require a regex_lookup() method')
 
     def savepoint_create_sql(self, sid):
         """
@@ -1028,7 +1032,7 @@ class BaseDatabaseOperations(object):
         to tables with foreign keys pointing the tables being truncated.
         PostgreSQL requires a cascade even if these tables are empty.
         """
-        raise NotImplementedError()
+        raise NotImplementedError('subclasses of BaseDatabaseOperations must provide a sql_flush() method')
 
     def sequence_reset_by_name_sql(self, style, sequences):
         """
@@ -1128,7 +1132,7 @@ class BaseDatabaseOperations(object):
         """
         if value is None:
             return None
-        return util.format_number(value, max_digits, decimal_places)
+        return utils.format_number(value, max_digits, decimal_places)
 
     def year_lookup_bounds_for_date_field(self, value):
         """
@@ -1245,7 +1249,7 @@ class BaseDatabaseIntrospection(object):
         Returns an unsorted list of names of all tables that exist in the
         database.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseIntrospection may require a get_table_list() method')
 
     def django_table_names(self, only_existing=False):
         """
@@ -1322,7 +1326,7 @@ class BaseDatabaseIntrospection(object):
         Backends can override this to return a list of (column_name, referenced_table_name,
         referenced_column_name) for all key columns in given table.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseIntrospection may require a get_key_columns() method')
 
     def get_primary_key_column(self, cursor, table_name):
         """
@@ -1342,7 +1346,7 @@ class BaseDatabaseIntrospection(object):
 
         Only single-column indexes are introspected.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseIntrospection may require a get_indexes() method')
 
     def get_constraints(self, cursor, table_name):
         """
@@ -1361,7 +1365,7 @@ class BaseDatabaseIntrospection(object):
         Some backends may return special constraint names that don't exist
         if they don't name constraints of a certain type (e.g. SQLite)
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of BaseDatabaseIntrospection may require a get_constraints() method')
 
 
 class BaseDatabaseClient(object):
@@ -1378,7 +1382,7 @@ class BaseDatabaseClient(object):
         self.connection = connection
 
     def runshell(self):
-        raise NotImplementedError()
+        raise NotImplementedError('subclasses of BaseDatabaseClient must provide a runshell() method')
 
 
 class BaseDatabaseValidation(object):

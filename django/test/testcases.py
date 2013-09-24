@@ -8,6 +8,7 @@ import json
 import os
 import posixpath
 import re
+import socket
 import sys
 import threading
 import unittest
@@ -17,13 +18,11 @@ from unittest.util import safe_repr
 from django.conf import settings
 from django.core import mail
 from django.core.exceptions import ValidationError, ImproperlyConfigured
-from django.core.handlers.wsgi import WSGIHandler
-from django.core.handlers.base import get_path_info
+from django.core.handlers.wsgi import get_path_info, WSGIHandler
 from django.core.management import call_command
 from django.core.management.color import no_style
 from django.core.management.commands import flush
-from django.core.servers.basehttp import (WSGIRequestHandler, WSGIServer,
-    WSGIServerException)
+from django.core.servers.basehttp import WSGIRequestHandler, WSGIServer
 from django.core.urlresolvers import clear_url_caches, set_urlconf
 from django.db import connection, connections, DEFAULT_DB_ALIAS, transaction
 from django.db.models.loading import cache
@@ -226,12 +225,14 @@ class SimpleTestCase(unittest.TestCase):
         return override_settings(**kwargs)
 
     def assertRedirects(self, response, expected_url, status_code=302,
-                        target_status_code=200, host=None, msg_prefix=''):
+                        target_status_code=200, host=None, msg_prefix='',
+                        fetch_redirect_response=True):
         """Asserts that a response redirected to a specific URL, and that the
         redirect URL can be loaded.
 
         Note that assertRedirects won't work for external links since it uses
-        TestClient to do a request.
+        TestClient to do a request (use fetch_redirect_response=False to check
+        such links without fetching thtem).
         """
         if msg_prefix:
             msg_prefix += ": "
@@ -265,14 +266,15 @@ class SimpleTestCase(unittest.TestCase):
             url = response.url
             scheme, netloc, path, query, fragment = urlsplit(url)
 
-            redirect_response = response.client.get(path, QueryDict(query))
+            if fetch_redirect_response:
+                redirect_response = response.client.get(path, QueryDict(query))
 
-            # Get the redirection page, using the same client that was used
-            # to obtain the original response.
-            self.assertEqual(redirect_response.status_code, target_status_code,
-                msg_prefix + "Couldn't retrieve redirection page '%s':"
-                " response code was %d (expected %d)" %
-                    (path, redirect_response.status_code, target_status_code))
+                # Get the redirection page, using the same client that was used
+                # to obtain the original response.
+                self.assertEqual(redirect_response.status_code, target_status_code,
+                    msg_prefix + "Couldn't retrieve redirection page '%s':"
+                    " response code was %d (expected %d)" %
+                        (path, redirect_response.status_code, target_status_code))
 
         e_scheme, e_netloc, e_path, e_query, e_fragment = urlsplit(
                                                               expected_url)
@@ -697,6 +699,9 @@ class TransactionTestCase(SimpleTestCase):
     # Subclasses can enable only a subset of apps for faster tests
     available_apps = None
 
+    # Subclasses can define fixtures which will be automatically installed.
+    fixtures = None
+
     def _pre_setup(self):
         """Performs any pre-test setup. This includes:
 
@@ -729,9 +734,8 @@ class TransactionTestCase(SimpleTestCase):
     def _reset_sequences(self, db_name):
         conn = connections[db_name]
         if conn.features.supports_sequence_reset:
-            sql_list = \
-                conn.ops.sequence_reset_by_name_sql(no_style(),
-                                                    conn.introspection.sequence_list())
+            sql_list = conn.ops.sequence_reset_by_name_sql(
+                    no_style(), conn.introspection.sequence_list())
             if sql_list:
                 with transaction.commit_on_success_unless_managed(using=db_name):
                     cursor = conn.cursor()
@@ -744,7 +748,7 @@ class TransactionTestCase(SimpleTestCase):
             if self.reset_sequences:
                 self._reset_sequences(db_name)
 
-            if hasattr(self, 'fixtures'):
+            if self.fixtures:
                 # We have to use this slightly awkward syntax due to the fact
                 # that we're using *args and **kwargs together.
                 call_command('loaddata', *self.fixtures,
@@ -836,7 +840,7 @@ class TestCase(TransactionTestCase):
         disable_transaction_methods()
 
         for db_name in self._databases_names(include_mirrors=False):
-            if hasattr(self, 'fixtures'):
+            if self.fixtures:
                 try:
                     call_command('loaddata', *self.fixtures,
                                  **{
@@ -1024,10 +1028,9 @@ class LiveServerThread(threading.Thread):
                 try:
                     self.httpd = WSGIServer(
                         (self.host, port), QuietWSGIRequestHandler)
-                except WSGIServerException as e:
+                except socket.error as e:
                     if (index + 1 < len(self.possible_ports) and
-                        hasattr(e.args[0], 'errno') and
-                        e.args[0].errno == errno.EADDRINUSE):
+                        e.errno == errno.EADDRINUSE):
                         # This port is already in use, so we go on and try with
                         # the next one in the list.
                         continue
@@ -1120,12 +1123,15 @@ class LiveServerTestCase(TransactionTestCase):
         # Wait for the live server to be ready
         cls.server_thread.is_ready.wait()
         if cls.server_thread.error:
+            # Clean up behind ourselves, since tearDownClass won't get called in
+            # case of errors.
+            cls._tearDownClassInternal()
             raise cls.server_thread.error
 
         super(LiveServerTestCase, cls).setUpClass()
 
     @classmethod
-    def tearDownClass(cls):
+    def _tearDownClassInternal(cls):
         # There may not be a 'server_thread' attribute if setUpClass() for some
         # reasons has raised an exception.
         if hasattr(cls, 'server_thread'):
@@ -1138,4 +1144,7 @@ class LiveServerTestCase(TransactionTestCase):
                 and conn.settings_dict['NAME'] == ':memory:'):
                 conn.allow_thread_sharing = False
 
+    @classmethod
+    def tearDownClass(cls):
+        cls._tearDownClassInternal()
         super(LiveServerTestCase, cls).tearDownClass()

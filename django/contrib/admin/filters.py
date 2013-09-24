@@ -12,7 +12,7 @@ from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.utils.encoding import smart_text, force_text
 from django.utils.translation import ugettext_lazy as _
 from django.utils import timezone
-from django.contrib.admin.util import (get_model_from_relation,
+from django.contrib.admin.utils import (get_model_from_relation,
     reverse_field_path, get_limit_choices_to_from_path, prepare_lookup_value)
 from django.contrib.admin.options import IncorrectLookupParameters
 
@@ -33,26 +33,26 @@ class ListFilter(object):
         """
         Returns True if some choices would be output for this filter.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of ListFilter must provide a has_output() method')
 
     def choices(self, cl):
         """
         Returns choices ready to be output in the template.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of ListFilter must provide a choices() method')
 
     def queryset(self, request, queryset):
         """
         Returns the filtered queryset.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of ListFilter must provide a queryset() method')
 
     def expected_parameters(self):
         """
         Returns the list of parameter names that are expected from the
         request's query string and that will be used by this filter.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of ListFilter must provide an expected_parameters() method')
 
 
 class SimpleListFilter(ListFilter):
@@ -89,7 +89,9 @@ class SimpleListFilter(ListFilter):
         """
         Must be overridden to return a list of tuples (value, verbose value)
         """
-        raise NotImplementedError
+        raise NotImplementedError(
+            'The SimpleListFilter.lookups() method must be overridden to '
+            'return a list of tuples (value, verbose value)')
 
     def expected_parameters(self):
         return [self.parameter_name]

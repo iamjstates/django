@@ -177,7 +177,7 @@ class SyndicationFeed(object):
         Outputs the feed in the given encoding to outfile, which is a file-like
         object. Subclasses should override this.
         """
-        raise NotImplementedError
+        raise NotImplementedError('subclasses of SyndicationFeed must provide a write() method')
 
     def writeString(self, encoding):
         """
@@ -272,7 +272,7 @@ class Rss201rev2Feed(RssFeed):
 
         # Author information.
         if item["author_name"] and item["author_email"]:
-            handler.addQuickElement("author", "%s (%s)" % \
+            handler.addQuickElement("author", "%s (%s)" %
                 (item['author_email'], item['author_name']))
         elif item["author_email"]:
             handler.addQuickElement("author", item["author_email"])

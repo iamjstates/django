@@ -14,7 +14,7 @@ from io import BytesIO
 
 from django.core import validators
 from django.core.exceptions import ValidationError
-from django.forms.util import ErrorList, from_current_timezone, to_current_timezone
+from django.forms.utils import ErrorList, from_current_timezone, to_current_timezone
 from django.forms.widgets import (
     TextInput, NumberInput, EmailInput, URLInput, HiddenInput,
     MultipleHiddenInput, ClearableFileInput, CheckboxInput, Select,
@@ -115,8 +115,6 @@ class Field(object):
         super(Field, self).__init__()
 
     def prepare_value(self, value):
-        if self.widget.is_localized:
-            value = formats.localize_input(value)
         return value
 
     def to_python(self, value):
@@ -468,7 +466,6 @@ class DateTimeField(BaseTemporalField):
     }
 
     def prepare_value(self, value):
-        value = super(DateTimeField, self).prepare_value(value)
         if isinstance(value, datetime.datetime):
             value = to_current_timezone(value)
         return value
@@ -976,6 +973,11 @@ class MultiValueField(Field):
                 # by those individual fields.
                 f.required = False
         self.fields = fields
+
+    def __deepcopy__(self, memo):
+        result = super(MultiValueField, self).__deepcopy__(memo)
+        result.fields = tuple([x.__deepcopy__(memo) for x in self.fields])
+        return result
 
     def validate(self, value):
         pass

@@ -333,7 +333,11 @@ class RequestFactory(object):
         r.update(extra)
         # If QUERY_STRING is absent or empty, we want to extract it from the URL.
         if not r.get('QUERY_STRING'):
-            r['QUERY_STRING'] = force_str(parsed[4])
+            query_string = force_bytes(parsed[4])
+            # WSGI requires latin-1 encoded strings. See get_path_info().
+            if six.PY3:
+                query_string = query_string.decode('iso-8859-1')
+            r['QUERY_STRING'] = query_string
         return self.request(**r)
 
 
@@ -520,8 +524,8 @@ class Client(RequestFactory):
         not available.
         """
         user = authenticate(**credentials)
-        if user and user.is_active \
-                and 'django.contrib.sessions' in settings.INSTALLED_APPS:
+        if (user and user.is_active and
+                'django.contrib.sessions' in settings.INSTALLED_APPS):
             engine = import_module(settings.SESSION_ENGINE)
 
             # Create a fake request to store login details.

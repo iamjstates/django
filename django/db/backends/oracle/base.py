@@ -5,6 +5,7 @@ Requires cx_Oracle: http://cx-oracle.sourceforge.net/
 """
 from __future__ import unicode_literals
 
+import datetime
 import decimal
 import re
 import platform
@@ -50,13 +51,17 @@ try:
 except ImportError:
     pytz = None
 
+from django.conf import settings
 from django.db import utils
-from django.db.backends import *
+from django.db.backends import (BaseDatabaseFeatures, BaseDatabaseOperations,
+    BaseDatabaseWrapper, BaseDatabaseValidation, utils as backend_utils)
 from django.db.backends.oracle.client import DatabaseClient
 from django.db.backends.oracle.creation import DatabaseCreation
 from django.db.backends.oracle.introspection import DatabaseIntrospection
 from django.db.backends.oracle.schema import DatabaseSchemaEditor
+from django.utils import six, timezone
 from django.utils.encoding import force_bytes, force_text
+from django.utils.functional import cached_property
 
 
 DatabaseError = Database.DatabaseError
@@ -235,7 +240,7 @@ WHEN (new.%(col_name)s IS NULL)
             value = float(value)
         # Convert floats to decimals
         elif value is not None and field and field.get_internal_type() == 'DecimalField':
-            value = util.typecast_decimal(field.format_number(value))
+            value = backend_utils.typecast_decimal(field.format_number(value))
         # cx_Oracle always returns datetime.datetime objects for
         # DATE and TIMESTAMP columns, but Django wants to see a
         # python datetime.date, .time, or .datetime.  We use the type
@@ -312,7 +317,7 @@ WHEN (new.%(col_name)s IS NULL)
         # always defaults to uppercase.
         # We simplify things by making Oracle identifiers always uppercase.
         if not name.startswith('"') and not name.endswith('"'):
-            name = '"%s"' % util.truncate_name(name.upper(),
+            name = '"%s"' % backend_utils.truncate_name(name.upper(),
                                                self.max_name_length())
         # Oracle puts the query text into a (query % args) construct, so % signs
         # in names need to be escaped. The '%%' will be collapsed back to '%' at
@@ -478,11 +483,11 @@ WHEN (new.%(col_name)s IS NULL)
 
     def _get_sequence_name(self, table):
         name_length = self.max_name_length() - 3
-        return '%s_SQ' % util.truncate_name(table, name_length).upper()
+        return '%s_SQ' % backend_utils.truncate_name(table, name_length).upper()
 
     def _get_trigger_name(self, table):
         name_length = self.max_name_length() - 3
-        return '%s_TR' % util.truncate_name(table, name_length).upper()
+        return '%s_TR' % backend_utils.truncate_name(table, name_length).upper()
 
     def bulk_insert_sql(self, fields, num_values):
         items_sql = "SELECT %s FROM DUAL" % ", ".join(["%s"] * len(fields))

@@ -745,11 +745,11 @@ class FormattingTests(TransRealMixin, TestCase):
             self.assertEqual('.', get_format('DECIMAL_SEPARATOR', lang='en'))
 
     def test_get_format_modules_stability(self):
-        with self.settings(FORMAT_MODULE_PATH='i18n.other.locale'), \
-                translation.override('de', deactivate=True):
-            old = str("%r") % get_format_modules(reverse=True)
-            new = str("%r") % get_format_modules(reverse=True) # second try
-            self.assertEqual(new, old, 'Value returned by get_formats_modules() must be preserved between calls.')
+        with self.settings(FORMAT_MODULE_PATH='i18n.other.locale'):
+            with translation.override('de', deactivate=True):
+                old = str("%r") % get_format_modules(reverse=True)
+                new = str("%r") % get_format_modules(reverse=True) # second try
+                self.assertEqual(new, old, 'Value returned by get_formats_modules() must be preserved between calls.')
 
     def test_localize_templatetag_and_filter(self):
         """
@@ -849,6 +849,7 @@ class MiscTests(TransRealMixin, TestCase):
         self.assertEqual([], p('de;q=0.a'))
         self.assertEqual([], p('12-345'))
         self.assertEqual([], p(''))
+        self.assertEqual([], p('en; q=1,'))
 
     def test_parse_literal_http_header(self):
         """
