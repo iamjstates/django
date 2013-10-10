@@ -184,6 +184,9 @@ class DefaultFiltersTests(TestCase):
             '<p>one <a href="#">two - three <br>four</a> five</p>')
         self.assertEqual(truncatewords_html(
             '\xc5ngstr\xf6m was here', 1), '\xc5ngstr\xf6m ...')
+        self.assertEqual(truncatewords_html('<i>Buenos d&iacute;as! '
+            '&#x00bf;C&oacute;mo est&aacute;?</i>', 3),
+            '<i>Buenos d&iacute;as! &#x00bf;C&oacute;mo ...</i>')
 
     def test_upper(self):
         self.assertEqual(upper('Mixed case input'), 'MIXED CASE INPUT')
@@ -323,6 +326,24 @@ class DefaultFiltersTests(TestCase):
             '<a href="http://192.168.0.15/api/9" rel="nofollow">http://192.168.0.15/api/9</a>')
         self.assertEqual(urlize('http://[2001:db8:cafe::2]/api/9'),
             '<a href="http://[2001:db8:cafe::2]/api/9" rel="nofollow">http://[2001:db8:cafe::2]/api/9</a>')
+
+        # Check urlize correctly include quotation marks in links - #20364
+        self.assertEqual(urlize('before "hi@example.com" afterwards'),
+                         'before "<a href="mailto:hi@example.com">hi@example.com</a>" afterwards')
+        self.assertEqual(urlize('before hi@example.com" afterwards'),
+                         'before <a href="mailto:hi@example.com">hi@example.com</a>" afterwards')
+        self.assertEqual(urlize('before "hi@example.com afterwards'),
+                         'before "<a href="mailto:hi@example.com">hi@example.com</a> afterwards')
+        self.assertEqual(urlize('before \'hi@example.com\' afterwards'),
+                         'before \'<a href="mailto:hi@example.com">hi@example.com</a>\' afterwards')
+        self.assertEqual(urlize('before hi@example.com\' afterwards'),
+                         'before <a href="mailto:hi@example.com">hi@example.com</a>\' afterwards')
+        self.assertEqual(urlize('before \'hi@example.com afterwards'),
+                         'before \'<a href="mailto:hi@example.com">hi@example.com</a> afterwards')
+
+        # Check urlize copes with commas following URLs in quotes - see #20364 
+        self.assertEqual(urlize('Email us at "hi@example.com", or phone us at +xx.yy'),
+            'Email us at "<a href="mailto:hi@example.com">hi@example.com</a>", or phone us at +xx.yy')
 
     def test_wordcount(self):
         self.assertEqual(wordcount(''), 0)

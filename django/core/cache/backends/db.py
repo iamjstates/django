@@ -11,6 +11,7 @@ except ImportError:
 from django.conf import settings
 from django.core.cache.backends.base import BaseCache, DEFAULT_TIMEOUT
 from django.db import connections, transaction, router, DatabaseError
+from django.db.backends.utils import typecast_timestamp
 from django.utils import timezone, six
 from django.utils.encoding import force_bytes
 
@@ -65,8 +66,13 @@ class DatabaseCache(BaseDatabaseCache):
         if row is None:
             return default
         now = timezone.now()
-
-        if row[2] < now:
+        expires = row[2]
+        if connections[db].features.needs_datetime_string_cast and not isinstance(expires, datetime):
+            # Note: typecasting is needed by some 3rd party database backends.
+            # All core backends work without typecasting, so be careful about
+            # changes here - test suite will NOT pick regressions here.
+            expires = typecast_timestamp(str(expires))
+        if expires < now:
             db = router.db_for_write(self.cache_model_class)
             cursor = connections[db].cursor()
             cursor.execute("DELETE FROM %s "
@@ -86,8 +92,7 @@ class DatabaseCache(BaseDatabaseCache):
         return self._base_set('add', key, value, timeout)
 
     def _base_set(self, mode, key, value, timeout=DEFAULT_TIMEOUT):
-        if timeout == DEFAULT_TIMEOUT:
-            timeout = self.default_timeout
+        timeout = self.get_backend_timeout(timeout)
         db = router.db_for_write(self.cache_model_class)
         table = connections[db].ops.quote_name(self._table)
         cursor = connections[db].cursor()
@@ -99,9 +104,9 @@ class DatabaseCache(BaseDatabaseCache):
         if timeout is None:
             exp = datetime.max
         elif settings.USE_TZ:
-            exp = datetime.utcfromtimestamp(time.time() + timeout)
+            exp = datetime.utcfromtimestamp(timeout)
         else:
-            exp = datetime.fromtimestamp(time.time() + timeout)
+            exp = datetime.fromtimestamp(timeout)
         exp = exp.replace(microsecond=0)
         if num > self._max_entries:
             self._cull(db, cursor, now)
@@ -112,12 +117,21 @@ class DatabaseCache(BaseDatabaseCache):
         if six.PY3:
             b64encoded = b64encoded.decode('latin1')
         try:
+            # Note: typecasting for datetimes is needed by some 3rd party
+            # database backends. All core backends work without typecasting,
+            # so be careful about changes here - test suite will NOT pick
+            # regressions.
             with transaction.atomic(using=db):
                 cursor.execute("SELECT cache_key, expires FROM %s "
                                "WHERE cache_key = %%s" % table, [key])
                 result = cursor.fetchone()
+                if result:
+                    current_expires = result[1]
+                    if (connections[db].features.needs_datetime_string_cast and not
+                            isinstance(current_expires, datetime)):
+                        current_expires = typecast_timestamp(str(current_expires))
                 exp = connections[db].ops.value_to_db_datetime(exp)
-                if result and (mode == 'set' or (mode == 'add' and result[1] < now)):
+                if result and (mode == 'set' or (mode == 'add' and current_expires < now)):
                     cursor.execute("UPDATE %s SET value = %%s, expires = %%s "
                                    "WHERE cache_key = %%s" % table,
                                    [b64encoded, exp, key])
