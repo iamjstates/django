@@ -31,8 +31,8 @@ inter_shp = os.path.join(shp_path, 'interstates', 'interstates.shp')
 invalid_shp = os.path.join(shp_path, 'invalid', 'emptypoints.shp')
 
 # Dictionaries to hold what's expected in the county shapefile.
-NAMES  = ['Bexar', 'Galveston', 'Harris', 'Honolulu', 'Pueblo']
-NUMS   = [1, 2, 1, 19, 1] # Number of polygons for each.
+NAMES = ['Bexar', 'Galveston', 'Harris', 'Honolulu', 'Pueblo']
+NUMS = [1, 2, 1, 19, 1] # Number of polygons for each.
 STATES = ['Texas', 'Texas', 'Texas', 'Hawaii', 'Colorado']
 
 
@@ -163,8 +163,10 @@ class LayerMapTest(TestCase):
 
         # Passing in invalid ForeignKey mapping parameters -- must be a dictionary
         # mapping for the model the ForeignKey points to.
-        bad_fk_map1 = copy(co_mapping); bad_fk_map1['state'] = 'name'
-        bad_fk_map2 = copy(co_mapping); bad_fk_map2['state'] = {'nombre' : 'State'}
+        bad_fk_map1 = copy(co_mapping)
+        bad_fk_map1['state'] = 'name'
+        bad_fk_map2 = copy(co_mapping)
+        bad_fk_map2['state'] = {'nombre': 'State'}
         self.assertRaises(TypeError, LayerMapping, County, co_shp, bad_fk_map1, transform=False)
         self.assertRaises(LayerMapError, LayerMapping, County, co_shp, bad_fk_map2, transform=False)
 
@@ -206,7 +208,8 @@ class LayerMapTest(TestCase):
     def test_test_fid_range_step(self):
         "Tests the `fid_range` keyword and the `step` keyword of .save()."
         # Function for clearing out all the counties before testing.
-        def clear_counties(): County.objects.all().delete()
+        def clear_counties():
+            County.objects.all().delete()
 
         State.objects.bulk_create([
             State(name='Colorado'), State(name='Hawaii'), State(name='Texas')
@@ -252,18 +255,18 @@ class LayerMapTest(TestCase):
         # Testing the `step` keyword -- should get the same counties
         # regardless of we use a step that divides equally, that is odd,
         # or that is larger than the dataset.
-        for st in (4,7,1000):
+        for st in (4, 7, 1000):
             clear_counties()
             lm.save(step=st, strict=True)
             self.county_helper(county_feat=False)
 
     def test_model_inheritance(self):
         "Tests LayerMapping on inherited models.  See #12093."
-        icity_mapping = {'name' : 'Name',
-                         'population' : 'Population',
-                         'density' : 'Density',
-                         'point' : 'POINT',
-                         'dt' : 'Created',
+        icity_mapping = {'name': 'Name',
+                         'population': 'Population',
+                         'density': 'Density',
+                         'point': 'POINT',
+                         'dt': 'Created',
                          }
 
         # Parent model has geometry field.

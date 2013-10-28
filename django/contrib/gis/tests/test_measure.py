@@ -32,7 +32,6 @@ class DistanceTest(unittest.TestCase):
             self.assertEqual(d.m, 1.0)
             self.assertEqual(d.mm, 1000.0)
 
-
     def testInitInvalid(self):
         "Testing initialisation from invalid units"
         self.assertRaises(AttributeError, D, banana=100)
@@ -273,5 +272,5 @@ def suite():
 def run(verbosity=2):
     unittest.TextTestRunner(verbosity=verbosity).run(suite())
 
-if __name__=="__main__":
+if __name__ == "__main__":
     run()

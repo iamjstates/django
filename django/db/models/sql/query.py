@@ -1681,7 +1681,7 @@ class Query(object):
                 count = self.aggregates_module.Count('*', is_summary=True)
             else:
                 assert len(self.select) == 1, \
-                        "Cannot add count col with multiple cols in 'select': %r" % self.select
+                    "Cannot add count col with multiple cols in 'select': %r" % self.select
                 count = self.aggregates_module.Count(self.select[0].col)
         else:
             opts = self.get_meta()
@@ -1693,7 +1693,7 @@ class Query(object):
                 # Because of SQL portability issues, multi-column, distinct
                 # counts need a sub-query -- see get_count() for details.
                 assert len(self.select) == 1, \
-                        "Cannot add count col with multiple cols in 'select'."
+                    "Cannot add count col with multiple cols in 'select'."
 
                 count = self.aggregates_module.Count(self.select[0].col, distinct=True)
             # Distinct handling is done in Count(), so don't do it at this
@@ -1712,7 +1712,10 @@ class Query(object):
         certain related models (as opposed to all models, when
         self.select_related=True).
         """
-        field_dict = {}
+        if isinstance(self.select_related, bool):
+            field_dict = {}
+        else:
+            field_dict = self.select_related
         for field in fields:
             d = field_dict
             for part in field.split(LOOKUP_SEP):

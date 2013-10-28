@@ -1,8 +1,9 @@
 from __future__ import unicode_literals
 import warnings
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, RequestFactory
 from django.utils import six
+from django.utils.datastructures import MergeDict
 from django.utils.deprecation import RenameMethodsBase
 
 
@@ -25,6 +26,7 @@ class RenameMethodsTests(SimpleTestCase):
         """
         with warnings.catch_warnings(record=True) as recorded:
             warnings.simplefilter('always')
+
             class Manager(six.with_metaclass(RenameManagerMethods)):
                 def old(self):
                     pass
@@ -39,6 +41,7 @@ class RenameMethodsTests(SimpleTestCase):
         """
         with warnings.catch_warnings(record=True) as recorded:
             warnings.simplefilter('ignore')
+
             class Manager(six.with_metaclass(RenameManagerMethods)):
                 def new(self):
                     pass
@@ -58,6 +61,7 @@ class RenameMethodsTests(SimpleTestCase):
         """
         with warnings.catch_warnings(record=True) as recorded:
             warnings.simplefilter('ignore')
+
             class Manager(six.with_metaclass(RenameManagerMethods)):
                 def old(self):
                     pass
@@ -78,9 +82,11 @@ class RenameMethodsTests(SimpleTestCase):
         """
         with warnings.catch_warnings(record=True) as recorded:
             warnings.simplefilter('ignore')
+
             class Renamed(six.with_metaclass(RenameManagerMethods)):
                 def new(self):
                     pass
+
             class Deprecated(Renamed):
                 def old(self):
                     super(Deprecated, self).old()
@@ -107,9 +113,11 @@ class RenameMethodsTests(SimpleTestCase):
         """
         with warnings.catch_warnings(record=True) as recorded:
             warnings.simplefilter('ignore')
+
             class Deprecated(six.with_metaclass(RenameManagerMethods)):
                 def old(self):
                     pass
+
             class Renamed(Deprecated):
                 def new(self):
                     super(Renamed, self).new()
@@ -131,15 +139,19 @@ class RenameMethodsTests(SimpleTestCase):
         """
         with warnings.catch_warnings(record=True) as recorded:
             warnings.simplefilter('ignore')
+
             class Renamed(six.with_metaclass(RenameManagerMethods)):
                 def new(self):
                     pass
+
             class RenamedMixin(object):
                 def new(self):
                     super(RenamedMixin, self).new()
+
             class DeprecatedMixin(object):
                 def old(self):
                     super(DeprecatedMixin, self).old()
+
             class Deprecated(DeprecatedMixin, RenamedMixin, Renamed):
                 pass
             warnings.simplefilter('always')
@@ -155,4 +167,23 @@ class RenameMethodsTests(SimpleTestCase):
             self.assertEqual(msgs, [
                 '`DeprecatedMixin.old` is deprecated, use `new` instead.',
                 '`RenamedMixin.old` is deprecated, use `new` instead.',
+            ])
+
+
+class DeprecatingRequestMergeDictTest(SimpleTestCase):
+    def test_deprecated_request(self):
+        """
+        Ensure the correct warning is raised when WSGIRequest.REQUEST is
+        accessed.
+        """
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter('always')
+            request = RequestFactory().get('/')
+            request.REQUEST  # evaluate
+
+            msgs = [str(warning.message) for warning in recorded]
+            self.assertEqual(msgs, [
+                '`request.REQUEST` is deprecated, use `request.GET` or '
+                '`request.POST` instead.',
+                '`MergeDict` is deprecated, use `dict.update()` instead.',
             ])

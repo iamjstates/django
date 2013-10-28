@@ -38,7 +38,7 @@ def bookmarklets(request):
     admin_root = urlresolvers.reverse('admin:index')
     return render_to_response('admin_doc/bookmarklets.html', {
         'root_path': admin_root,
-        'admin_url': "%s://%s%s" % ('https' if request.is_secure() else 'http', request.get_host(), admin_root),
+        'admin_url': "%s://%s%s" % (request.scheme, request.get_host(), admin_root),
     }, context_instance=RequestContext(request))
 
 @staff_member_required
@@ -204,7 +204,13 @@ def model_detail(request, app_label, model_name):
         if isinstance(field, models.ForeignKey):
             data_type = field.rel.to.__name__
             app_label = field.rel.to._meta.app_label
-            verbose = utils.parse_rst((_("the related `%(app_label)s.%(data_type)s` object")  % {'app_label': app_label, 'data_type': data_type}), 'model', _('model:') + data_type)
+            verbose = utils.parse_rst(
+                (_("the related `%(app_label)s.%(data_type)s` object") % {
+                    'app_label': app_label, 'data_type': data_type,
+                }),
+                'model',
+                _('model:') + data_type,
+            )
         else:
             data_type = get_readable_field_data_type(field)
             verbose = field.verbose_name
@@ -223,12 +229,12 @@ def model_detail(request, app_label, model_name):
         fields.append({
             'name': "%s.all" % field.name,
             "data_type": 'List',
-            'verbose': utils.parse_rst(_("all %s") % verbose , 'model', _('model:') + opts.model_name),
+            'verbose': utils.parse_rst(_("all %s") % verbose, 'model', _('model:') + opts.model_name),
         })
         fields.append({
-            'name'      : "%s.count" % field.name,
-            'data_type' : 'Integer',
-            'verbose'   : utils.parse_rst(_("number of %s") % verbose , 'model', _('model:') + opts.model_name),
+            'name': "%s.count" % field.name,
+            'data_type': 'Integer',
+            'verbose': utils.parse_rst(_("number of %s") % verbose, 'model', _('model:') + opts.model_name),
         })
 
     # Gather model methods.
@@ -254,14 +260,14 @@ def model_detail(request, app_label, model_name):
         verbose = _("related `%(app_label)s.%(object_name)s` objects") % {'app_label': rel.opts.app_label, 'object_name': rel.opts.object_name}
         accessor = rel.get_accessor_name()
         fields.append({
-            'name'      : "%s.all" % accessor,
-            'data_type' : 'List',
-            'verbose'   : utils.parse_rst(_("all %s") % verbose , 'model', _('model:') + opts.model_name),
+            'name': "%s.all" % accessor,
+            'data_type': 'List',
+            'verbose': utils.parse_rst(_("all %s") % verbose, 'model', _('model:') + opts.model_name),
         })
         fields.append({
-            'name'      : "%s.count" % accessor,
-            'data_type' : 'Integer',
-            'verbose'   : utils.parse_rst(_("number of %s") % verbose , 'model', _('model:') + opts.model_name),
+            'name': "%s.count" % accessor,
+            'data_type': 'Integer',
+            'verbose': utils.parse_rst(_("number of %s") % verbose, 'model', _('model:') + opts.model_name),
         })
     return render_to_response('admin_doc/model_detail.html', {
         'root_path': urlresolvers.reverse('admin:index'),

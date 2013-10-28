@@ -60,10 +60,10 @@ def parse_rst(text, default_reference_context, thing_being_parsed=None):
     Convert the string from reST to an XHTML fragment.
     """
     overrides = {
-        'doctitle_xform' : True,
-        'inital_header_level' : 3,
-        "default_reference_context" : default_reference_context,
-        "link_base" : reverse('django-admindocs-docroot').rstrip('/')
+        'doctitle_xform': True,
+        'inital_header_level': 3,
+        "default_reference_context": default_reference_context,
+        "link_base": reverse('django-admindocs-docroot').rstrip('/')
     }
     if thing_being_parsed:
         thing_being_parsed = force_bytes("<%s>" % thing_being_parsed)
@@ -85,24 +85,28 @@ def parse_rst(text, default_reference_context, thing_being_parsed=None):
 # reST roles
 #
 ROLES = {
-    'model'    : '%s/models/%s/',
-    'view'     : '%s/views/%s/',
-    'template' : '%s/templates/%s/',
-    'filter'   : '%s/filters/#%s',
-    'tag'      : '%s/tags/#%s',
+    'model': '%s/models/%s/',
+    'view': '%s/views/%s/',
+    'template': '%s/templates/%s/',
+    'filter': '%s/filters/#%s',
+    'tag': '%s/tags/#%s',
 }
 
 def create_reference_role(rolename, urlbase):
     def _role(name, rawtext, text, lineno, inliner, options=None, content=None):
-        if options is None: options = {}
-        if content is None: content = []
+        if options is None:
+            options = {}
+        if content is None:
+            content = []
         node = docutils.nodes.reference(rawtext, text, refuri=(urlbase % (inliner.document.settings.link_base, text.lower())), **options)
         return [node], []
     docutils.parsers.rst.roles.register_canonical_role(rolename, _role)
 
 def default_reference_role(name, rawtext, text, lineno, inliner, options=None, content=None):
-    if options is None: options = {}
-    if content is None: content = []
+    if options is None:
+        options = {}
+    if content is None:
+        content = []
     context = inliner.document.settings.default_reference_context
     node = docutils.nodes.reference(rawtext, text, refuri=(ROLES[context] % (inliner.document.settings.link_base, text.lower())), **options)
     return [node], []

@@ -14,8 +14,8 @@ from django.utils.encoding import force_str, force_text
 from django.utils.functional import allow_lazy
 from django.utils import six
 from django.utils.six.moves.urllib.parse import (
-        quote, quote_plus, unquote, unquote_plus, urlparse,
-        urlencode as original_urlencode)
+    quote, quote_plus, unquote, unquote_plus, urlparse,
+    urlencode as original_urlencode)
 
 ETAG_MATCH = re.compile(r'(?:W/)?"((?:\\.|[^"])*)"')
 
@@ -78,7 +78,7 @@ def urlencode(query, doseq=0):
         query = query.items()
     return original_urlencode(
         [(force_str(k),
-         [force_str(i) for i in v] if isinstance(v, (list,tuple)) else force_str(v))
+         [force_str(i) for i in v] if isinstance(v, (list, tuple)) else force_str(v))
             for k, v in query],
         doseq)
 

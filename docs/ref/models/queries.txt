@@ -19,7 +19,7 @@ without actually having to pull them out of the database into Python memory.
 Instead, Django uses the ``F()`` object to generate a SQL expression that
 describes the required operation at the database level.
 
-This is easiest to understand though an example. Normally, one might do
+This is easiest to understand through an example. Normally, one might do
 something like this::
 
     # Tintin filed a news story!
@@ -111,6 +111,10 @@ Supported operations with ``F()``
 As well as addition, Django supports subtraction, multiplication, division,
 and modulo arithmetic with ``F()`` objects, using Python constants,
 variables, and even other ``F()`` objects.
+
+.. versionadded:: 1.7
+
+    The power operator ``**`` is also supported.
 
 ``Q()`` objects
 ===============

@@ -21,7 +21,7 @@ def index(request, sitemaps):
     """
     current_site = get_current_site(request)
     sites = []
-    protocol = 'https' if request.is_secure() else 'http'
+    protocol = request.scheme
     for section, site in sitemaps.items():
         if callable(site):
             pages = site().paginator.num_pages
@@ -106,7 +106,7 @@ def kml(request, label, model, field_name=None, compress=False, using=DEFAULT_DB
         render = render_to_kmz
     else:
         render = render_to_kml
-    return render('gis/kml/placemarks.kml', {'places' : placemarks})
+    return render('gis/kml/placemarks.kml', {'places': placemarks})
 
 def kmz(request, label, model, field_name=None, using=DEFAULT_DB_ALIAS):
     """

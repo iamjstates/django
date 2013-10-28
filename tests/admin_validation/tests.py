@@ -127,14 +127,15 @@ class ValidationTestCase(TestCase):
             model = TwoAlbumFKAndAnE
             exclude = ("e",)
             fk_name = "album1"
+
         class MyAdmin(admin.ModelAdmin):
             inlines = [TwoAlbumFKAndAnEInline]
         MyAdmin.validate(Album)
 
-
     def test_inline_self_validation(self):
         class TwoAlbumFKAndAnEInline(admin.TabularInline):
             model = TwoAlbumFKAndAnE
+
         class MyAdmin(admin.ModelAdmin):
             inlines = [TwoAlbumFKAndAnEInline]
 
@@ -194,7 +195,7 @@ class ValidationTestCase(TestCase):
     def test_nonexistant_field_on_inline(self):
         class CityInline(admin.TabularInline):
             model = City
-            readonly_fields=['i_dont_exist'] # Missing attribute
+            readonly_fields = ['i_dont_exist']  # Missing attribute
 
         self.assertRaisesMessage(ImproperlyConfigured,
             str_prefix("CityInline.readonly_fields[0], %(_)s'i_dont_exist' is not a callable "
@@ -292,10 +293,10 @@ class ValidationTestCase(TestCase):
         """
         class SongForm(forms.ModelForm):
             extra_data = forms.CharField()
+
             class Meta:
                 model = Song
                 fields = '__all__'
-
 
         class FieldsOnFormOnlyAdmin(admin.ModelAdmin):
             form = SongForm

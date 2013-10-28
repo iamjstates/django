@@ -27,13 +27,14 @@ def color_style():
         DJANGO_COLORS = os.environ.get('DJANGO_COLORS', '')
         color_settings = termcolors.parse_color_setting(DJANGO_COLORS)
         if color_settings:
-            class dummy: pass
+            class dummy:
+                pass
             style = dummy()
             # The nocolor palette has all available roles.
             # Use that palette as the basis for populating
             # the palette as defined in the environment.
             for role in termcolors.PALETTES[termcolors.NOCOLOR_PALETTE]:
-                format = color_settings.get(role,{})
+                format = color_settings.get(role, {})
                 setattr(style, role, termcolors.make_style(**format))
             # For backwards compatibility,
             # set style for ERROR_OUTPUT == ERROR

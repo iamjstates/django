@@ -426,7 +426,8 @@ def get_language_from_request(request, check_path=False):
             return lang_code
 
     if hasattr(request, 'session'):
-        lang_code = request.session.get('django_language', None)
+        # for backwards compatibility django_language is also checked (remove in 1.8)
+        lang_code = request.session.get('_language', request.session.get('django_language'))
         if lang_code in supported and lang_code is not None and check_for_language(lang_code):
             return lang_code
 
@@ -640,7 +641,7 @@ def templatize(src, origin=None):
                     out.write(' _(%s) ' % cmatch.group(1))
                 for p in parts[1:]:
                     if p.find(':_(') >= 0:
-                        out.write(' %s ' % p.split(':',1)[1])
+                        out.write(' %s ' % p.split(':', 1)[1])
                     else:
                         out.write(blankout(p, 'F'))
             elif t.token_type == TOKEN_COMMENT:
@@ -664,7 +665,7 @@ def parse_accept_lang_header(lang_string):
     if pieces[-1]:
         return []
     for i in range(0, len(pieces) - 1, 3):
-        first, lang, priority = pieces[i : i + 3]
+        first, lang, priority = pieces[i:i + 3]
         if first:
             return []
         if priority:

@@ -50,7 +50,7 @@ def patterns(prefix, *args):
     return pattern_list
 
 def url(regex, view, kwargs=None, name=None, prefix=''):
-    if isinstance(view, (list,tuple)):
+    if isinstance(view, (list, tuple)):
         # For include(...) processing.
         urlconf_module, app_name, namespace = view
         return RegexURLResolver(regex, urlconf_module, kwargs, app_name=app_name, namespace=namespace)
@@ -61,4 +61,3 @@ def url(regex, view, kwargs=None, name=None, prefix=''):
             if prefix:
                 view = prefix + '.' + view
         return RegexURLPattern(regex, view, kwargs, name)
-

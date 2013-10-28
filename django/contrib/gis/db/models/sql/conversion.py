@@ -5,6 +5,7 @@ to convert geospatial values from the database.
 
 class BaseField(object):
     empty_strings_allowed = True
+
     def get_internal_type(self):
         "Overloaded method so OracleQuery.convert_values doesn't balk."
         return None
@@ -21,7 +22,7 @@ class DistanceField(BaseField):
 
 class GeomField(BaseField):
     """
-    Wrapper for Geometry values.  It is a lightweight alternative to 
+    Wrapper for Geometry values.  It is a lightweight alternative to
     using GeometryField (which requires an SQL query upon instantiation).
     """
     pass

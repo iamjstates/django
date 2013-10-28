@@ -11,9 +11,11 @@ from django.core.files.uploadedfile import TemporaryUploadedFile, InMemoryUpload
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.module_loading import import_by_path
 
-__all__ = ['UploadFileException','StopUpload', 'SkipFile', 'FileUploadHandler',
-           'TemporaryFileUploadHandler', 'MemoryFileUploadHandler',
-           'load_handler', 'StopFutureHandlers']
+__all__ = [
+    'UploadFileException', 'StopUpload', 'SkipFile', 'FileUploadHandler',
+    'TemporaryFileUploadHandler', 'MemoryFileUploadHandler', 'load_handler',
+    'StopFutureHandlers'
+]
 
 class UploadFileException(Exception):
     """
@@ -199,6 +201,8 @@ def load_handler(path, *args, **kwargs):
     Given a path to a handler, return an instance of that handler.
 
     E.g.::
+        >>> from django.http import HttpRequest
+        >>> request = HttpRequest()
         >>> load_handler('django.core.files.uploadhandler.TemporaryFileUploadHandler', request)
         <TemporaryFileUploadHandler object at 0x...>
 

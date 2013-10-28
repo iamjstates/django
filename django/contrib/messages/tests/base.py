@@ -57,9 +57,9 @@ class BaseTests(object):
 
     def setUp(self):
         self.settings_override = override_settings_tags(
-            TEMPLATE_DIRS   = (),
+            TEMPLATE_DIRS = (),
             TEMPLATE_CONTEXT_PROCESSORS = global_settings.TEMPLATE_CONTEXT_PROCESSORS,
-            MESSAGE_TAGS    = '',
+            MESSAGE_TAGS = '',
             MESSAGE_STORAGE = '%s.%s' % (self.storage_class.__module__,
                                          self.storage_class.__name__),
             SESSION_SERIALIZER = 'django.contrib.sessions.serializers.JSONSerializer',
@@ -214,12 +214,12 @@ class BaseTests(object):
 
     @override_settings(
         INSTALLED_APPS=filter(
-            lambda app:app!='django.contrib.messages', settings.INSTALLED_APPS),
+            lambda app: app != 'django.contrib.messages', settings.INSTALLED_APPS),
         MIDDLEWARE_CLASSES=filter(
-            lambda m:'MessageMiddleware' not in m, settings.MIDDLEWARE_CLASSES),
+            lambda m: 'MessageMiddleware' not in m, settings.MIDDLEWARE_CLASSES),
         TEMPLATE_CONTEXT_PROCESSORS=filter(
-            lambda p:'context_processors.messages' not in p,
-                 settings.TEMPLATE_CONTEXT_PROCESSORS),
+            lambda p: 'context_processors.messages' not in p,
+            settings.TEMPLATE_CONTEXT_PROCESSORS),
         MESSAGE_LEVEL=constants.DEBUG
     )
     def test_middleware_disabled(self):
@@ -239,12 +239,12 @@ class BaseTests(object):
 
     @override_settings(
         INSTALLED_APPS=filter(
-            lambda app:app!='django.contrib.messages', settings.INSTALLED_APPS),
+            lambda app: app != 'django.contrib.messages', settings.INSTALLED_APPS),
         MIDDLEWARE_CLASSES=filter(
-            lambda m:'MessageMiddleware' not in m, settings.MIDDLEWARE_CLASSES),
+            lambda m: 'MessageMiddleware' not in m, settings.MIDDLEWARE_CLASSES),
         TEMPLATE_CONTEXT_PROCESSORS=filter(
-            lambda p:'context_processors.messages' not in p,
-                 settings.TEMPLATE_CONTEXT_PROCESSORS),
+            lambda p: 'context_processors.messages' not in p,
+            settings.TEMPLATE_CONTEXT_PROCESSORS),
         MESSAGE_LEVEL=constants.DEBUG
     )
     def test_middleware_disabled_fail_silently(self):
@@ -354,12 +354,12 @@ class BaseTests(object):
                           'success'])
 
     @override_settings_tags(MESSAGE_TAGS={
-            constants.INFO: 'info',
-            constants.DEBUG: '',
-            constants.WARNING: '',
-            constants.ERROR: 'bad',
-            29: 'custom',
-        }
+        constants.INFO: 'info',
+        constants.DEBUG: '',
+        constants.WARNING: '',
+        constants.ERROR: 'bad',
+        29: 'custom',
+    }
     )
     def test_custom_tags(self):
         storage = self.get_storage()

@@ -147,12 +147,12 @@ class ClientTest(TestCase):
 
     def test_redirect_http(self):
         "GET a URL that redirects to an http URI"
-        response = self.client.get('/test_client/http_redirect_view/',follow=True)
+        response = self.client.get('/test_client/http_redirect_view/', follow=True)
         self.assertFalse(response.test_was_secure_request)
 
     def test_redirect_https(self):
         "GET a URL that redirects to an https URI"
-        response = self.client.get('/test_client/https_redirect_view/',follow=True)
+        response = self.client.get('/test_client/https_redirect_view/', follow=True)
         self.assertTrue(response.test_was_secure_request)
 
     def test_notfound_response(self):
@@ -169,7 +169,7 @@ class ClientTest(TestCase):
             'email': 'foo@example.com',
             'value': 37,
             'single': 'b',
-            'multi': ('b','c','e')
+            'multi': ('b', 'c', 'e')
         }
         response = self.client.post('/test_client/form_view/', post_data)
         self.assertEqual(response.status_code, 200)
@@ -179,7 +179,7 @@ class ClientTest(TestCase):
         "GET a form, providing hints in the GET data"
         hints = {
             'text': 'Hello World',
-            'multi': ('b','c','e')
+            'multi': ('b', 'c', 'e')
         }
         response = self.client.get('/test_client/form_view/', data=hints)
         self.assertEqual(response.status_code, 200)
@@ -209,7 +209,7 @@ class ClientTest(TestCase):
             'email': 'not an email address',
             'value': 37,
             'single': 'b',
-            'multi': ('b','c','e')
+            'multi': ('b', 'c', 'e')
         }
         response = self.client.post('/test_client/form_view/', post_data)
         self.assertEqual(response.status_code, 200)
@@ -224,7 +224,7 @@ class ClientTest(TestCase):
             'email': 'foo@example.com',
             'value': 37,
             'single': 'b',
-            'multi': ('b','c','e')
+            'multi': ('b', 'c', 'e')
         }
         response = self.client.post('/test_client/form_view_with_template/', post_data)
         self.assertContains(response, 'POST data OK')
@@ -255,7 +255,7 @@ class ClientTest(TestCase):
             'email': 'not an email address',
             'value': 37,
             'single': 'b',
-            'multi': ('b','c','e')
+            'multi': ('b', 'c', 'e')
         }
         response = self.client.post('/test_client/form_view_with_template/', post_data)
         self.assertContains(response, 'POST data has errors')
@@ -419,7 +419,7 @@ class ClientTest(TestCase):
             pass
 
         from django.contrib.sessions.models import Session
-        response = self.client.post('/test_client/session_view/')
+        self.client.post('/test_client/session_view/')
 
         # Check that the session was modified
         self.assertEqual(self.client.session['tobacconist'], 'hovercraft')
@@ -467,17 +467,11 @@ class ClientTest(TestCase):
         self.assertEqual(mail.outbox[1].to[0], 'second@example.com')
         self.assertEqual(mail.outbox[1].to[1], 'third@example.com')
 
+
+@override_settings(
+    MIDDLEWARE_CLASSES = ('django.middleware.csrf.CsrfViewMiddleware',)
+)
 class CSRFEnabledClientTests(TestCase):
-    def setUp(self):
-        # Enable the CSRF middleware for this test
-        self.old_MIDDLEWARE_CLASSES = settings.MIDDLEWARE_CLASSES
-        csrf_middleware_class = 'django.middleware.csrf.CsrfViewMiddleware'
-        if csrf_middleware_class not in settings.MIDDLEWARE_CLASSES:
-            settings.MIDDLEWARE_CLASSES += (csrf_middleware_class,)
-
-    def tearDown(self):
-        settings.MIDDLEWARE_CLASSES = self.old_MIDDLEWARE_CLASSES
-
     def test_csrf_enabled_client(self):
         "A client can be instantiated with CSRF checks enabled"
         csrf_client = Client(enforce_csrf_checks=True)

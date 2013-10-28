@@ -56,7 +56,8 @@ ERROR_MESSAGE = "Please enter the correct username and password \
 for a staff account. Note that both fields may be case-sensitive."
 
 
-@override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',))
+@override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
+                   USE_I18N=True, USE_L10N=False, LANGUAGE_CODE='en')
 class AdminViewBasicTestCase(TestCase):
     fixtures = ['admin-views-users.xml', 'admin-views-colors.xml',
                 'admin-views-fabrics.xml', 'admin-views-books.xml']
@@ -69,16 +70,9 @@ class AdminViewBasicTestCase(TestCase):
     urls = "admin_views.urls"
 
     def setUp(self):
-        self.old_USE_I18N = settings.USE_I18N
-        self.old_USE_L10N = settings.USE_L10N
-        self.old_LANGUAGE_CODE = settings.LANGUAGE_CODE
         self.client.login(username='super', password='secret')
-        settings.USE_I18N = True
 
     def tearDown(self):
-        settings.USE_I18N = self.old_USE_I18N
-        settings.USE_L10N = self.old_USE_L10N
-        settings.LANGUAGE_CODE = self.old_LANGUAGE_CODE
         self.client.logout()
         formats.reset_format_cache()
 
@@ -425,13 +419,11 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
                 test=lambda obj, value: obj.chap.book.name == value),
             'chap__book__promo__id__exact': dict(
                 values=[p.id for p in Promo.objects.all()],
-                test=lambda obj, value:
-                    obj.chap.book.promo_set.filter(id=value).exists()),
+                test=lambda obj, value: obj.chap.book.promo_set.filter(id=value).exists()),
             'chap__book__promo__name': dict(
                 values=[p.name for p in Promo.objects.all()],
-                test=lambda obj, value:
-                    obj.chap.book.promo_set.filter(name=value).exists()),
-            }
+                test=lambda obj, value: obj.chap.book.promo_set.filter(name=value).exists()),
+        }
         for filter_path, params in filters.items():
             for value in params['values']:
                 query_string = urlencode({filter_path: value})
@@ -1253,10 +1245,10 @@ class AdminViewPermissionsTest(TestCase):
         response = self.client.get('/test_admin/admin/admin_views/customarticle/%d/delete/' % article_pk)
         self.assertTemplateUsed(response, 'custom_admin/delete_confirmation.html')
         response = self.client.post('/test_admin/admin/admin_views/customarticle/', data={
-                'index': 0,
-                'action': ['delete_selected'],
-                '_selected_action': ['1'],
-            })
+            'index': 0,
+            'action': ['delete_selected'],
+            '_selected_action': ['1'],
+        })
         self.assertTemplateUsed(response, 'custom_admin/delete_selected_confirmation.html')
         response = self.client.get('/test_admin/admin/admin_views/customarticle/%d/history/' % article_pk)
         self.assertTemplateUsed(response, 'custom_admin/object_history.html')
@@ -1474,7 +1466,7 @@ class AdminViewDeletedObjectsTest(TestCase):
             """<li>Super villain: <a href="/test_admin/admin/admin_views/supervillain/3/">Bob</a>""",
             """<li>Secret hideout: floating castle""",
             """<li>Super secret hideout: super floating castle!"""
-            ]
+        ]
         response = self.client.get('/test_admin/admin/admin_views/villain/%s/delete/' % quote(3))
         for should in should_contain:
             self.assertContains(response, should, 1)
@@ -2412,15 +2404,12 @@ class AdminActionsTest(TestCase):
         self.client.post('/test_admin/admin/admin_views/subscriber/', delete_confirmation_data)
         self.assertEqual(Subscriber.objects.count(), 0)
 
+    @override_settings(USE_THOUSAND_SEPARATOR=True, USE_L10N=True)
     def test_non_localized_pk(self):
         """If USE_THOUSAND_SEPARATOR is set, make sure that the ids for
         the objects selected for deletion are rendered without separators.
         Refs #14895.
         """
-        self.old_USE_THOUSAND_SEPARATOR = settings.USE_THOUSAND_SEPARATOR
-        self.old_USE_L10N = settings.USE_L10N
-        settings.USE_THOUSAND_SEPARATOR = True
-        settings.USE_L10N = True
         subscriber = Subscriber.objects.get(id=1)
         subscriber.id = 9999
         subscriber.save()
@@ -2433,8 +2422,6 @@ class AdminActionsTest(TestCase):
         self.assertTemplateUsed(response, 'admin/delete_selected_confirmation.html')
         self.assertContains(response, 'value="9999"')  # Instead of 9,999
         self.assertContains(response, 'value="2"')
-        settings.USE_THOUSAND_SEPARATOR = self.old_USE_THOUSAND_SEPARATOR
-        settings.USE_L10N = self.old_USE_L10N
 
     def test_model_admin_default_delete_action_protected(self):
         """
@@ -3456,7 +3443,7 @@ class SeleniumAdminViewsFirefoxTests(AdminSeleniumWebDriverTestCase):
         self.assertEqual(slug2, 'option-one-here-stacked-inline')
 
         # Add an inline
-        self.selenium.find_elements_by_link_text('Add another Related Prepopulated')[0].click()
+        self.selenium.find_elements_by_link_text('Add another Related prepopulated')[0].click()
         self.selenium.find_element_by_css_selector('#id_relatedprepopulated_set-1-pubdate').send_keys('1999-01-25')
         self.get_select_option('#id_relatedprepopulated_set-1-status', 'option two').click()
         self.selenium.find_element_by_css_selector('#id_relatedprepopulated_set-1-name').send_keys(' now you haVe anöther   sŤāÇkeð  inline with a very ... loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooog text... ')
@@ -3476,7 +3463,7 @@ class SeleniumAdminViewsFirefoxTests(AdminSeleniumWebDriverTestCase):
         self.assertEqual(slug2, 'option-two-and-now-tabular-inline')
 
         # Add an inline
-        self.selenium.find_elements_by_link_text('Add another Related Prepopulated')[1].click()
+        self.selenium.find_elements_by_link_text('Add another Related prepopulated')[1].click()
         self.selenium.find_element_by_css_selector('#id_relatedprepopulated_set-2-1-pubdate').send_keys('1981-08-22')
         self.get_select_option('#id_relatedprepopulated_set-2-1-status', 'option one').click()
         self.selenium.find_element_by_css_selector('#id_relatedprepopulated_set-2-1-name').send_keys('a tÃbűlaŘ inline with ignored ;"&*^\%$#@-/`~ characters')
@@ -4129,21 +4116,16 @@ class ValidXHTMLTests(TestCase):
         self.assertNotContains(response, ' xml:lang=""')
 
 
-@override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',))
+@override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
+                   USE_THOUSAND_SEPARATOR=True, USE_L10N=True)
 class DateHierarchyTests(TestCase):
     urls = "admin_views.urls"
     fixtures = ['admin-views-users.xml']
 
     def setUp(self):
         self.client.login(username='super', password='secret')
-        self.old_USE_THOUSAND_SEPARATOR = settings.USE_THOUSAND_SEPARATOR
-        self.old_USE_L10N = settings.USE_L10N
-        settings.USE_THOUSAND_SEPARATOR = True
-        settings.USE_L10N = True
 
     def tearDown(self):
-        settings.USE_THOUSAND_SEPARATOR = self.old_USE_THOUSAND_SEPARATOR
-        settings.USE_L10N = self.old_USE_L10N
         formats.reset_format_cache()
 
     def assert_non_localized_year(self, response, year):

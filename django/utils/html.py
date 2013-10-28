@@ -65,8 +65,8 @@ def conditional_escape(text):
     """
     Similar to escape(), except that it doesn't operate on pre-escaped strings.
     """
-    if isinstance(text, SafeData):
-        return text
+    if hasattr(text, '__html__'):
+        return text.__html__()
     else:
         return escape(text)
 
@@ -97,8 +97,8 @@ def format_html_join(sep, format_string, args_generator):
 
     """
     return mark_safe(conditional_escape(sep).join(
-            format_html(format_string, *tuple(args))
-            for args in args_generator))
+        format_html(format_string, *tuple(args))
+        for args in args_generator))
 
 
 def linebreaks(value, autoescape=False):
@@ -118,12 +118,16 @@ class MLStripper(HTMLParser):
         HTMLParser.__init__(self)
         self.reset()
         self.fed = []
+
     def handle_data(self, d):
         self.fed.append(d)
+
     def handle_entityref(self, name):
         self.fed.append('&%s;' % name)
+
     def handle_charref(self, name):
         self.fed.append('&#%s;' % name)
+
     def get_data(self):
         return ''.join(self.fed)
 
@@ -285,6 +289,7 @@ def clean_html(text):
     # Trim stupid HTML such as <br clear="all">.
     text = html_gunk_re.sub('', text)
     # Convert hard-coded bullets into HTML unordered lists.
+
     def replace_p_tags(match):
         s = match.group().replace('</p>', '</li>')
         for d in DOTS:

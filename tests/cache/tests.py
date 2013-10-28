@@ -20,7 +20,7 @@ from django.core import management
 from django.core.cache import get_cache
 from django.core.cache.backends.base import (CacheKeyWarning,
     InvalidCacheBackendError)
-from django.db import router, transaction
+from django.db import connection, router, transaction
 from django.core.cache.utils import make_template_fragment_key
 from django.http import (HttpResponse, HttpRequest, StreamingHttpResponse,
     QueryDict)
@@ -119,13 +119,13 @@ class DummyCacheTests(unittest.TestCase):
     def test_data_types(self):
         "All data types are ignored equally by the dummy cache"
         stuff = {
-            'string'    : 'this is a string',
-            'int'       : 42,
-            'list'      : [1, 2, 3, 4],
-            'tuple'     : (1, 2, 3, 4),
-            'dict'      : {'A': 1, 'B' : 2},
-            'function'  : f,
-            'class'     : C,
+            'string': 'this is a string',
+            'int': 42,
+            'list': [1, 2, 3, 4],
+            'tuple': (1, 2, 3, 4),
+            'dict': {'A': 1, 'B': 2},
+            'function': f,
+            'class': C,
         }
         self.cache.set("stuff", stuff)
         self.assertEqual(self.cache.get("stuff"), None)
@@ -149,8 +149,8 @@ class DummyCacheTests(unittest.TestCase):
             'ascii': 'ascii_value',
             'unicode_ascii': 'Iñtërnâtiônàlizætiøn1',
             'Iñtërnâtiônàlizætiøn': 'Iñtërnâtiônàlizætiøn2',
-            'ascii2': {'x' : 1 }
-            }
+            'ascii2': {'x': 1}
+        }
         for (key, value) in stuff.items():
             self.cache.set(key, value)
             self.assertEqual(self.cache.get(key), None)
@@ -231,8 +231,8 @@ class BaseCacheTests(object):
         self.cache.set('b', 'b')
         self.cache.set('c', 'c')
         self.cache.set('d', 'd')
-        self.assertEqual(self.cache.get_many(['a', 'c', 'd']), {'a' : 'a', 'c' : 'c', 'd' : 'd'})
-        self.assertEqual(self.cache.get_many(['a', 'b', 'e']), {'a' : 'a', 'b' : 'b'})
+        self.assertEqual(self.cache.get_many(['a', 'c', 'd']), {'a': 'a', 'c': 'c', 'd': 'd'})
+        self.assertEqual(self.cache.get_many(['a', 'b', 'e']), {'a': 'a', 'b': 'b'})
 
     def test_delete(self):
         # Cache keys can be deleted
@@ -282,13 +282,13 @@ class BaseCacheTests(object):
     def test_data_types(self):
         # Many different data types can be cached
         stuff = {
-            'string'    : 'this is a string',
-            'int'       : 42,
-            'list'      : [1, 2, 3, 4],
-            'tuple'     : (1, 2, 3, 4),
-            'dict'      : {'A': 1, 'B' : 2},
-            'function'  : f,
-            'class'     : C,
+            'string': 'this is a string',
+            'int': 42,
+            'list': [1, 2, 3, 4],
+            'tuple': (1, 2, 3, 4),
+            'dict': {'A': 1, 'B': 2},
+            'function': f,
+            'class': C,
         }
         self.cache.set("stuff", stuff)
         self.assertEqual(self.cache.get("stuff"), stuff)
@@ -353,8 +353,8 @@ class BaseCacheTests(object):
             'ascii': 'ascii_value',
             'unicode_ascii': 'Iñtërnâtiônàlizætiøn1',
             'Iñtërnâtiônàlizætiøn': 'Iñtërnâtiônàlizætiøn2',
-            'ascii2': {'x' : 1 }
-            }
+            'ascii2': {'x': 1}
+        }
         # Test `set`
         for (key, value) in stuff.items():
             self.cache.set(key, value)
@@ -434,7 +434,7 @@ class BaseCacheTests(object):
         it is an absolute expiration timestamp instead of a relative
         offset. Test that we honour this convention. Refs #12399.
         '''
-        self.cache.set('key1', 'eggs', 60*60*24*30 + 1) #30 days + 1 second
+        self.cache.set('key1', 'eggs', 60*60*24*30 + 1)  # 30 days + 1 second
         self.assertEqual(self.cache.get('key1'), 'eggs')
 
         self.cache.add('key2', 'ham', 60*60*24*30 + 1)
@@ -682,55 +682,55 @@ class BaseCacheTests(object):
     def test_cache_versioning_get_set_many(self):
         # set, using default version = 1
         self.cache.set_many({'ford1': 37, 'arthur1': 42})
-        self.assertEqual(self.cache.get_many(['ford1','arthur1']),
+        self.assertEqual(self.cache.get_many(['ford1', 'arthur1']),
                          {'ford1': 37, 'arthur1': 42})
-        self.assertEqual(self.cache.get_many(['ford1','arthur1'], version=1),
+        self.assertEqual(self.cache.get_many(['ford1', 'arthur1'], version=1),
                          {'ford1': 37, 'arthur1': 42})
-        self.assertEqual(self.cache.get_many(['ford1','arthur1'], version=2), {})
+        self.assertEqual(self.cache.get_many(['ford1', 'arthur1'], version=2), {})
 
-        self.assertEqual(self.v2_cache.get_many(['ford1','arthur1']), {})
-        self.assertEqual(self.v2_cache.get_many(['ford1','arthur1'], version=1),
+        self.assertEqual(self.v2_cache.get_many(['ford1', 'arthur1']), {})
+        self.assertEqual(self.v2_cache.get_many(['ford1', 'arthur1'], version=1),
                          {'ford1': 37, 'arthur1': 42})
-        self.assertEqual(self.v2_cache.get_many(['ford1','arthur1'], version=2), {})
+        self.assertEqual(self.v2_cache.get_many(['ford1', 'arthur1'], version=2), {})
 
         # set, default version = 1, but manually override version = 2
         self.cache.set_many({'ford2': 37, 'arthur2': 42}, version=2)
-        self.assertEqual(self.cache.get_many(['ford2','arthur2']), {})
-        self.assertEqual(self.cache.get_many(['ford2','arthur2'], version=1), {})
-        self.assertEqual(self.cache.get_many(['ford2','arthur2'], version=2),
+        self.assertEqual(self.cache.get_many(['ford2', 'arthur2']), {})
+        self.assertEqual(self.cache.get_many(['ford2', 'arthur2'], version=1), {})
+        self.assertEqual(self.cache.get_many(['ford2', 'arthur2'], version=2),
                          {'ford2': 37, 'arthur2': 42})
 
-        self.assertEqual(self.v2_cache.get_many(['ford2','arthur2']),
+        self.assertEqual(self.v2_cache.get_many(['ford2', 'arthur2']),
                          {'ford2': 37, 'arthur2': 42})
-        self.assertEqual(self.v2_cache.get_many(['ford2','arthur2'], version=1), {})
-        self.assertEqual(self.v2_cache.get_many(['ford2','arthur2'], version=2),
+        self.assertEqual(self.v2_cache.get_many(['ford2', 'arthur2'], version=1), {})
+        self.assertEqual(self.v2_cache.get_many(['ford2', 'arthur2'], version=2),
                          {'ford2': 37, 'arthur2': 42})
 
         # v2 set, using default version = 2
         self.v2_cache.set_many({'ford3': 37, 'arthur3': 42})
-        self.assertEqual(self.cache.get_many(['ford3','arthur3']), {})
-        self.assertEqual(self.cache.get_many(['ford3','arthur3'], version=1), {})
-        self.assertEqual(self.cache.get_many(['ford3','arthur3'], version=2),
+        self.assertEqual(self.cache.get_many(['ford3', 'arthur3']), {})
+        self.assertEqual(self.cache.get_many(['ford3', 'arthur3'], version=1), {})
+        self.assertEqual(self.cache.get_many(['ford3', 'arthur3'], version=2),
                          {'ford3': 37, 'arthur3': 42})
 
-        self.assertEqual(self.v2_cache.get_many(['ford3','arthur3']),
+        self.assertEqual(self.v2_cache.get_many(['ford3', 'arthur3']),
                          {'ford3': 37, 'arthur3': 42})
-        self.assertEqual(self.v2_cache.get_many(['ford3','arthur3'], version=1), {})
-        self.assertEqual(self.v2_cache.get_many(['ford3','arthur3'], version=2),
+        self.assertEqual(self.v2_cache.get_many(['ford3', 'arthur3'], version=1), {})
+        self.assertEqual(self.v2_cache.get_many(['ford3', 'arthur3'], version=2),
                          {'ford3': 37, 'arthur3': 42})
 
         # v2 set, default version = 2, but manually override version = 1
         self.v2_cache.set_many({'ford4': 37, 'arthur4': 42}, version=1)
-        self.assertEqual(self.cache.get_many(['ford4','arthur4']),
+        self.assertEqual(self.cache.get_many(['ford4', 'arthur4']),
                          {'ford4': 37, 'arthur4': 42})
-        self.assertEqual(self.cache.get_many(['ford4','arthur4'], version=1),
+        self.assertEqual(self.cache.get_many(['ford4', 'arthur4'], version=1),
                          {'ford4': 37, 'arthur4': 42})
-        self.assertEqual(self.cache.get_many(['ford4','arthur4'], version=2), {})
+        self.assertEqual(self.cache.get_many(['ford4', 'arthur4'], version=2), {})
 
-        self.assertEqual(self.v2_cache.get_many(['ford4','arthur4']), {})
-        self.assertEqual(self.v2_cache.get_many(['ford4','arthur4'], version=1),
+        self.assertEqual(self.v2_cache.get_many(['ford4', 'arthur4']), {})
+        self.assertEqual(self.v2_cache.get_many(['ford4', 'arthur4'], version=1),
                          {'ford4': 37, 'arthur4': 42})
-        self.assertEqual(self.v2_cache.get_many(['ford4','arthur4'], version=2), {})
+        self.assertEqual(self.v2_cache.get_many(['ford4', 'arthur4'], version=2), {})
 
     def test_incr_version(self):
         self.cache.set('answer', 42, version=2)
@@ -794,7 +794,6 @@ class BaseCacheTests(object):
         self.assertEqual(self.custom_key_cache.get('answer2'), 42)
         self.assertEqual(self.custom_key_cache2.get('answer2'), 42)
 
-
     def test_cache_write_unpickable_object(self):
         update_middleware = UpdateCacheMiddleware()
         update_middleware.cache = self.cache
@@ -829,6 +828,14 @@ def custom_key_func(key, key_prefix, version):
     return 'CUSTOM-' + '-'.join([key_prefix, str(version), key])
 
 
+@override_settings(
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'test cache table',
+        },
+    },
+)
 class DBCacheTests(BaseCacheTests, TransactionTestCase):
 
     available_apps = ['cache']
@@ -837,7 +844,7 @@ class DBCacheTests(BaseCacheTests, TransactionTestCase):
     def setUp(self):
         # Spaces are used in the table name to ensure quoting/escaping is working
         self._table_name = 'test cache table'
-        management.call_command('createcachetable', self._table_name, verbosity=0, interactive=False)
+        management.call_command('createcachetable', verbosity=0, interactive=False)
         self.cache = get_cache(self.backend_name, LOCATION=self._table_name, OPTIONS={'MAX_ENTRIES': 30})
         self.prefix_cache = get_cache(self.backend_name, LOCATION=self._table_name, KEY_PREFIX='cacheprefix')
         self.v2_cache = get_cache(self.backend_name, LOCATION=self._table_name, VERSION=2)
@@ -845,7 +852,6 @@ class DBCacheTests(BaseCacheTests, TransactionTestCase):
         self.custom_key_cache2 = get_cache(self.backend_name, LOCATION=self._table_name, KEY_FUNCTION='cache.tests.custom_key_func')
 
     def tearDown(self):
-        from django.db import connection
         cursor = connection.cursor()
         cursor.execute('DROP TABLE %s' % connection.ops.quote_name(self._table_name))
         connection.commit()
@@ -858,14 +864,29 @@ class DBCacheTests(BaseCacheTests, TransactionTestCase):
         self.perform_cull_test(50, 18)
 
     def test_second_call_doesnt_crash(self):
-        with six.assertRaisesRegex(self, management.CommandError,
-                "Cache table 'test cache table' could not be created"):
-            management.call_command(
-               'createcachetable',
-                self._table_name,
-                verbosity=0,
-                interactive=False
-            )
+        stdout = six.StringIO()
+        management.call_command(
+            'createcachetable',
+            stdout=stdout
+        )
+        self.assertEqual(stdout.getvalue(),
+            "Cache table '%s' already exists.\n" % self._table_name)
+
+    def test_createcachetable_with_table_argument(self):
+        """
+        Delete and recreate cache table with legacy behavior (explicitly
+        specifying the table name).
+        """
+        self.tearDown()
+        stdout = six.StringIO()
+        management.call_command(
+            'createcachetable',
+            self._table_name,
+            verbosity=2,
+            stdout=stdout
+        )
+        self.assertEqual(stdout.getvalue(),
+            "Cache table '%s' created.\n" % self._table_name)
 
     def test_clear_commits_transaction(self):
         # Ensure the database transaction is committed (#19896)
@@ -896,6 +917,14 @@ class DBCacheRouter(object):
             return db == 'other'
 
 
+@override_settings(
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'my_cache_table',
+        },
+    },
+)
 class CreateCacheTableForDBCacheTests(TestCase):
     multi_db = True
 
@@ -905,13 +934,16 @@ class CreateCacheTableForDBCacheTests(TestCase):
             router.routers = [DBCacheRouter()]
             # cache table should not be created on 'default'
             with self.assertNumQueries(0, using='default'):
-                management.call_command('createcachetable', 'cache_table',
+                management.call_command('createcachetable',
                                         database='default',
                                         verbosity=0, interactive=False)
             # cache table should be created on 'other'
-            # one query is used to create the table and another one the index
-            with self.assertNumQueries(2, using='other'):
-                management.call_command('createcachetable', 'cache_table',
+            # Queries:
+            #   1: check table doesn't already exist
+            #   2: create the table
+            #   3: create the index
+            with self.assertNumQueries(3, using='other'):
+                management.call_command('createcachetable',
                                         database='other',
                                         verbosity=0, interactive=False)
         finally:
@@ -1106,14 +1138,14 @@ class GetCacheTests(unittest.TestCase):
 
 
 @override_settings(
-        CACHE_MIDDLEWARE_KEY_PREFIX='settingsprefix',
-        CACHE_MIDDLEWARE_SECONDS=1,
-        CACHES={
-            'default': {
-                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            },
+    CACHE_MIDDLEWARE_KEY_PREFIX='settingsprefix',
+    CACHE_MIDDLEWARE_SECONDS=1,
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         },
-        USE_I18N=False,
+    },
+    USE_I18N=False,
 )
 class CacheUtils(TestCase):
     """TestCase for django.utils.cache functions."""
@@ -1189,16 +1221,16 @@ class CacheUtils(TestCase):
     def test_patch_cache_control(self):
         tests = (
             # Initial Cache-Control, kwargs to patch_cache_control, expected Cache-Control parts
-            (None, {'private' : True}, set(['private'])),
+            (None, {'private': True}, set(['private'])),
 
             # Test whether private/public attributes are mutually exclusive
-            ('private', {'private' : True}, set(['private'])),
-            ('private', {'public' : True}, set(['public'])),
-            ('public', {'public' : True}, set(['public'])),
-            ('public', {'private' : True}, set(['private'])),
-            ('must-revalidate,max-age=60,private', {'public' : True}, set(['must-revalidate', 'max-age=60', 'public'])),
-            ('must-revalidate,max-age=60,public', {'private' : True}, set(['must-revalidate', 'max-age=60', 'private'])),
-            ('must-revalidate,max-age=60', {'public' : True}, set(['must-revalidate', 'max-age=60', 'public'])),
+            ('private', {'private': True}, set(['private'])),
+            ('private', {'public': True}, set(['public'])),
+            ('public', {'public': True}, set(['public'])),
+            ('public', {'private': True}, set(['private'])),
+            ('must-revalidate,max-age=60,private', {'public': True}, set(['must-revalidate', 'max-age=60', 'public'])),
+            ('must-revalidate,max-age=60,public', {'private': True}, set(['must-revalidate', 'max-age=60', 'private'])),
+            ('must-revalidate,max-age=60', {'public': True}, set(['must-revalidate', 'max-age=60', 'public'])),
         )
 
         cc_delim_re = re.compile(r'\s*,\s*')
@@ -1213,25 +1245,25 @@ class CacheUtils(TestCase):
 
 
 @override_settings(
-        CACHES={
-            'default': {
-                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-                'KEY_PREFIX': 'cacheprefix',
-            },
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'KEY_PREFIX': 'cacheprefix',
         },
+    },
 )
 class PrefixedCacheUtils(CacheUtils):
     pass
 
 
 @override_settings(
-        CACHE_MIDDLEWARE_SECONDS=60,
-        CACHE_MIDDLEWARE_KEY_PREFIX='test',
-        CACHES={
-            'default': {
-                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            },
+    CACHE_MIDDLEWARE_SECONDS=60,
+    CACHE_MIDDLEWARE_KEY_PREFIX='test',
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         },
+    },
 )
 class CacheHEADTest(TestCase):
 
@@ -1286,16 +1318,16 @@ class CacheHEADTest(TestCase):
 
 
 @override_settings(
-        CACHE_MIDDLEWARE_KEY_PREFIX='settingsprefix',
-        CACHES={
-            'default': {
-                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            },
+    CACHE_MIDDLEWARE_KEY_PREFIX='settingsprefix',
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         },
-        LANGUAGES=(
-            ('en', 'English'),
-            ('es', 'Spanish'),
-        ),
+    },
+    LANGUAGES=(
+        ('en', 'English'),
+        ('es', 'Spanish'),
+    ),
 )
 class CacheI18nTest(TestCase):
 
@@ -1432,7 +1464,7 @@ class CacheI18nTest(TestCase):
         self.assertEqual(key, key2)
 
     @override_settings(USE_I18N=False, USE_L10N=False)
-    def test_cache_key_no_i18n (self):
+    def test_cache_key_no_i18n(self):
         request = self._get_request()
         lang = translation.get_language()
         tz = force_text(timezone.get_current_timezone_name(), errors='ignore')
@@ -1447,6 +1479,7 @@ class CacheI18nTest(TestCase):
         # Regression test for #17476
         class CustomTzName(timezone.UTC):
             name = ''
+
             def tzname(self, dt):
                 return self.name
 
@@ -1463,12 +1496,11 @@ class CacheI18nTest(TestCase):
             self.assertIn(sanitized_name, learn_cache_key(request, response),
                     "Cache keys should include the time zone name when time zones are active")
 
-
     @override_settings(
-            CACHE_MIDDLEWARE_KEY_PREFIX="test",
-            CACHE_MIDDLEWARE_SECONDS=60,
-            USE_ETAGS=True,
-            USE_I18N=True,
+        CACHE_MIDDLEWARE_KEY_PREFIX="test",
+        CACHE_MIDDLEWARE_SECONDS=60,
+        USE_ETAGS=True,
+        USE_I18N=True,
     )
     def test_middleware(self):
         def set_cache(request, lang, msg):
@@ -1496,8 +1528,8 @@ class CacheI18nTest(TestCase):
         self.assertEqual(get_cache_data, None)
 
         # i18n tests
-        en_message ="Hello world!"
-        es_message ="Hola mundo!"
+        en_message = "Hello world!"
+        es_message = "Hola mundo!"
 
         request = self._get_request_cache()
         set_cache(request, 'en', en_message)
@@ -1529,9 +1561,9 @@ class CacheI18nTest(TestCase):
         translation.deactivate()
 
     @override_settings(
-            CACHE_MIDDLEWARE_KEY_PREFIX="test",
-            CACHE_MIDDLEWARE_SECONDS=60,
-            USE_ETAGS=True,
+        CACHE_MIDDLEWARE_KEY_PREFIX="test",
+        CACHE_MIDDLEWARE_SECONDS=60,
+        USE_ETAGS=True,
     )
     def test_middleware_doesnt_cache_streaming_response(self):
         request = self._get_request()
@@ -1550,12 +1582,12 @@ class CacheI18nTest(TestCase):
         self.assertIsNone(get_cache_data)
 
 @override_settings(
-        CACHES={
-            'default': {
-                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-                'KEY_PREFIX': 'cacheprefix'
-            },
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'KEY_PREFIX': 'cacheprefix'
         },
+    },
 )
 class PrefixedCacheI18nTest(CacheI18nTest):
     pass
@@ -1566,20 +1598,20 @@ def hello_world_view(request, value):
 
 
 @override_settings(
-        CACHE_MIDDLEWARE_ALIAS='other',
-        CACHE_MIDDLEWARE_KEY_PREFIX='middlewareprefix',
-        CACHE_MIDDLEWARE_SECONDS=30,
-        CACHE_MIDDLEWARE_ANONYMOUS_ONLY=False,
-        CACHES={
-            'default': {
-                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            },
-            'other': {
-                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-                'LOCATION': 'other',
-                'TIMEOUT': '1',
-            },
+    CACHE_MIDDLEWARE_ALIAS='other',
+    CACHE_MIDDLEWARE_KEY_PREFIX='middlewareprefix',
+    CACHE_MIDDLEWARE_SECONDS=30,
+    CACHE_MIDDLEWARE_ANONYMOUS_ONLY=False,
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         },
+        'other': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'other',
+            'TIMEOUT': '1',
+        },
+    },
 )
 class CacheMiddlewareTest(IgnoreDeprecationWarningsMixin, TestCase):
 
@@ -1785,14 +1817,14 @@ class CacheMiddlewareTest(IgnoreDeprecationWarningsMixin, TestCase):
         self.assertEqual(response.content, b'Hello World 16')
 
 @override_settings(
-        CACHE_MIDDLEWARE_KEY_PREFIX='settingsprefix',
-        CACHE_MIDDLEWARE_SECONDS=1,
-        CACHES={
-            'default': {
-                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            },
+    CACHE_MIDDLEWARE_KEY_PREFIX='settingsprefix',
+    CACHE_MIDDLEWARE_SECONDS=1,
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         },
-        USE_I18N=False,
+    },
+    USE_I18N=False,
 )
 class TestWithTemplateResponse(TestCase):
     """
@@ -1917,4 +1949,3 @@ class TestMakeTemplateFragmentKey(TestCase):
         key = make_template_fragment_key('spam', ['abc:def%'])
         self.assertEqual(key,
             'template.cache.spam.f27688177baec990cdf3fbd9d9c3f469')
-

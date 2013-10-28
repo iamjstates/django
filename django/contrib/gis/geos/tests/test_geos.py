@@ -51,6 +51,7 @@ class GEOSTest(unittest.TestCase, TestDataMixin):
 
         # This one only accepts pointers to floats
         c_float_p = ctypes.POINTER(ctypes.c_float)
+
         class FakeGeom2(GEOSBase):
             ptr_type = c_float_p
 
@@ -143,7 +144,8 @@ class GEOSTest(unittest.TestCase, TestDataMixin):
         for tg in self.geometries.wkt_out:
             geom = fromstr(tg.wkt)
             kml = getattr(tg, 'kml', False)
-            if kml: self.assertEqual(kml, geom.kml)
+            if kml:
+                self.assertEqual(kml, geom.kml)
 
     def test_errors(self):
         "Testing the Error handlers."
@@ -237,7 +239,7 @@ class GEOSTest(unittest.TestCase, TestDataMixin):
         # an invalid type.
         for g in (p, ls):
             self.assertNotEqual(g, None)
-            self.assertNotEqual(g, {'foo' : 'bar'})
+            self.assertNotEqual(g, {'foo': 'bar'})
             self.assertNotEqual(g, False)
 
     def test_points(self):
@@ -338,7 +340,8 @@ class GEOSTest(unittest.TestCase, TestDataMixin):
             self.assertEqual(ls, LineString(*ls.tuple)) # as individual arguments
             self.assertEqual(ls, LineString([list(tup) for tup in ls.tuple])) # as list
             self.assertEqual(ls.wkt, LineString(*tuple(Point(tup) for tup in ls.tuple)).wkt) # Point individual arguments
-            if numpy: self.assertEqual(ls, LineString(numpy.array(ls.tuple))) # as numpy array
+            if numpy:
+                self.assertEqual(ls, LineString(numpy.array(ls.tuple))) # as numpy array
 
     def test_multilinestring(self):
         "Testing MultiLineString objects."
@@ -378,7 +381,8 @@ class GEOSTest(unittest.TestCase, TestDataMixin):
             self.assertEqual(lr, LinearRing(lr.tuple))
             self.assertEqual(lr, LinearRing(*lr.tuple))
             self.assertEqual(lr, LinearRing([list(tup) for tup in lr.tuple]))
-            if numpy: self.assertEqual(lr, LinearRing(numpy.array(lr.tuple)))
+            if numpy:
+                self.assertEqual(lr, LinearRing(numpy.array(lr.tuple)))
 
     def test_polygons_from_bbox(self):
         "Testing `from_bbox` class method."
@@ -528,8 +532,10 @@ class GEOSTest(unittest.TestCase, TestDataMixin):
                     self.assertEqual(c1, c2)
 
                     # Constructing the test value to set the coordinate sequence with
-                    if len(c1) == 2: tset = (5, 23)
-                    else: tset = (5, 23, 8)
+                    if len(c1) == 2:
+                        tset = (5, 23)
+                    else:
+                        tset = (5, 23, 8)
                     cs[i] = tset
 
                     # Making sure every set point matches what we expect
@@ -636,14 +642,16 @@ class GEOSTest(unittest.TestCase, TestDataMixin):
         # Testing SRID keyword on fromstr(), and on Polygon rings.
         poly = fromstr(self.geometries.polygons[1].wkt, srid=4269)
         self.assertEqual(4269, poly.srid)
-        for ring in poly: self.assertEqual(4269, ring.srid)
+        for ring in poly:
+            self.assertEqual(4269, ring.srid)
         poly.srid = 4326
         self.assertEqual(4326, poly.shell.srid)
 
         # Testing SRID keyword on GeometryCollection
         gc = GeometryCollection(Point(5, 23), LineString((0, 0), (1.5, 1.5), (3, 3)), srid=32021)
         self.assertEqual(32021, gc.srid)
-        for i in range(len(gc)): self.assertEqual(32021, gc[i].srid)
+        for i in range(len(gc)):
+            self.assertEqual(32021, gc[i].srid)
 
         # GEOS may get the SRID from HEXEWKB
         # 'POINT(5 23)' at SRID=4326 in hex form -- obtained from PostGIS
@@ -691,7 +699,8 @@ class GEOSTest(unittest.TestCase, TestDataMixin):
             # Constructing the new shell by adding 500 to every point in the old shell.
             shell_tup = poly.shell.tuple
             new_coords = []
-            for point in shell_tup: new_coords.append((point[0] + 500., point[1] + 500.))
+            for point in shell_tup:
+                new_coords.append((point[0] + 500., point[1] + 500.))
             new_shell = LinearRing(*tuple(new_coords))
 
             # Assigning polygon's exterior ring w/the new shell
@@ -724,7 +733,8 @@ class GEOSTest(unittest.TestCase, TestDataMixin):
                 # Offsetting the each ring in the polygon by 500.
                 for j in xrange(len(poly)):
                     r = poly[j]
-                    for k in xrange(len(r)): r[k] = (r[k][0] + 500., r[k][1] + 500.)
+                    for k in xrange(len(r)):
+                        r[k] = (r[k][0] + 500., r[k][1] + 500.)
                     poly[j] = r
 
                 self.assertNotEqual(mpoly[i], poly)
@@ -747,17 +757,17 @@ class GEOSTest(unittest.TestCase, TestDataMixin):
         "Testing three-dimensional geometries."
         # Testing a 3D Point
         pnt = Point(2, 3, 8)
-        self.assertEqual((2.,3.,8.), pnt.coords)
-        self.assertRaises(TypeError, pnt.set_coords, (1.,2.))
-        pnt.coords = (1.,2.,3.)
-        self.assertEqual((1.,2.,3.), pnt.coords)
+        self.assertEqual((2., 3., 8.), pnt.coords)
+        self.assertRaises(TypeError, pnt.set_coords, (1., 2.))
+        pnt.coords = (1., 2., 3.)
+        self.assertEqual((1., 2., 3.), pnt.coords)
 
         # Testing a 3D LineString
         ls = LineString((2., 3., 8.), (50., 250., -117.))
-        self.assertEqual(((2.,3.,8.), (50.,250.,-117.)), ls.tuple)
-        self.assertRaises(TypeError, ls.__setitem__, 0, (1.,2.))
-        ls[0] = (1.,2.,3.)
-        self.assertEqual((1.,2.,3.), ls[0])
+        self.assertEqual(((2., 3., 8.), (50., 250., -117.)), ls.tuple)
+        self.assertRaises(TypeError, ls.__setitem__, 0, (1., 2.))
+        ls[0] = (1., 2., 3.)
+        self.assertEqual((1., 2., 3.), ls[0])
 
     def test_distance(self):
         "Testing the distance() function."
@@ -1017,7 +1027,8 @@ class GEOSTest(unittest.TestCase, TestDataMixin):
             g1, g2 = cPickle.loads(s1), pickle.loads(s2)
             for tmpg in (g1, g2):
                 self.assertEqual(geom, tmpg)
-                if not no_srid: self.assertEqual(geom.srid, tmpg.srid)
+                if not no_srid:
+                    self.assertEqual(geom.srid, tmpg.srid)
 
     @skipUnless(HAS_GEOS and GEOS_PREPARE, "geos >= 3.1.0 is required")
     def test_prepared(self):

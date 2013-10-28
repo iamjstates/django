@@ -194,10 +194,10 @@ def linenumbers(value, autoescape=None):
     width = six.text_type(len(six.text_type(len(lines))))
     if not autoescape or isinstance(value, SafeData):
         for i, line in enumerate(lines):
-            lines[i] = ("%0" + width  + "d. %s") % (i + 1, line)
+            lines[i] = ("%0" + width + "d. %s") % (i + 1, line)
     else:
         for i, line in enumerate(lines):
-            lines[i] = ("%0" + width  + "d. %s") % (i + 1, escape(line))
+            lines[i] = ("%0" + width + "d. %s") % (i + 1, escape(line))
     return mark_safe('\n'.join(lines))
 
 @register.filter(is_safe=True)
@@ -591,6 +591,7 @@ def unordered_list(value, autoescape=None):
         escaper = conditional_escape
     else:
         escaper = lambda x: x
+
     def convert_old_style_list(list_):
         """
         Converts old style lists to the new easier to understand format.
@@ -621,6 +622,7 @@ def unordered_list(value, autoescape=None):
         if old_style_list:
             second_item = new_second_item
         return [first_item, second_item], old_style_list
+
     def _helper(list_, tabs=1):
         indent = '\t' * tabs
         output = []
@@ -808,17 +810,17 @@ def filesizeformat(bytes):
     """
     try:
         bytes = float(bytes)
-    except (TypeError,ValueError,UnicodeDecodeError):
+    except (TypeError, ValueError, UnicodeDecodeError):
         value = ungettext("%(size)d byte", "%(size)d bytes", 0) % {'size': 0}
         return avoid_wrapping(value)
 
     filesize_number_format = lambda value: formats.number_format(round(value, 1), 1)
 
-    KB = 1<<10
-    MB = 1<<20
-    GB = 1<<30
-    TB = 1<<40
-    PB = 1<<50
+    KB = 1 << 10
+    MB = 1 << 20
+    GB = 1 << 30
+    TB = 1 << 40
+    PB = 1 << 50
 
     if bytes < KB:
         value = ungettext("%(size)d byte", "%(size)d bytes", bytes) % {'size': bytes}

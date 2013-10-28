@@ -19,8 +19,11 @@ class datetime(real_datetime):
     def strftime(self, fmt):
         return strftime(self, fmt)
 
-    def combine(self, date, time):
-        return datetime(date.year, date.month, date.day, time.hour, time.minute, time.microsecond, time.tzinfo)
+    @classmethod
+    def combine(cls, date, time):
+        return cls(date.year, date.month, date.day,
+                   time.hour, time.minute, time.second,
+                   time.microsecond, time.tzinfo)
 
     def date(self):
         return date(self.year, self.month, self.day)
@@ -51,7 +54,7 @@ def _findall(text, substr):
         if j == -1:
             break
         sites.append(j)
-        i=j+1
+        i = j + 1
     return sites
 
 def strftime(dt, fmt):
