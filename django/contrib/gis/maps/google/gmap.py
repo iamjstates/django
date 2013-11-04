@@ -6,6 +6,7 @@ from django.utils.six.moves import xrange
 
 from django.contrib.gis.maps.google.overlays import GPolygon, GPolyline, GMarker
 
+
 class GoogleMapException(Exception):
     pass
 
@@ -19,9 +20,9 @@ class GoogleMap(object):
     "A class for generating Google Maps JavaScript."
 
     # String constants
-    onunload = mark_safe('onunload="GUnload()"') # Cleans up after Google Maps
-    vml_css = mark_safe('v\:* {behavior:url(#default#VML);}') # CSS for IE VML
-    xmlns = mark_safe('xmlns:v="urn:schemas-microsoft-com:vml"') # XML Namespace (for IE VML).
+    onunload = mark_safe('onunload="GUnload()"')  # Cleans up after Google Maps
+    vml_css = mark_safe('v\:* {behavior:url(#default#VML);}')  # CSS for IE VML
+    xmlns = mark_safe('xmlns:v="urn:schemas-microsoft-com:vml"')  # XML Namespace (for IE VML).
 
     def __init__(self, key=None, api_url=None, version=None,
                  center=None, zoom=None, dom_id='map',
@@ -153,6 +154,7 @@ class GoogleMap(object):
     def icons(self):
         "Returns a sequence of GIcon objects in this map."
         return set(marker.icon for marker in self.markers if marker.icon)
+
 
 class GoogleMapSet(GoogleMap):
 

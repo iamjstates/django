@@ -150,6 +150,7 @@ class TranslatableFile(object):
         if is_templatized:
             os.unlink(work_file)
 
+
 def write_pot_file(potfile, msgs):
     """
     Write the :param potfile: POT file with the :param msgs: contents,
@@ -238,7 +239,7 @@ class Command(NoArgsCommand):
         if settings.configured:
             settings.USE_I18N = True
         else:
-            settings.configure(USE_I18N = True)
+            settings.configure(USE_I18N=True)
 
         self.invoked_for_django = False
         if os.path.isdir(os.path.join('conf', 'locale')):

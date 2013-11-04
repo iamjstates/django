@@ -1,5 +1,4 @@
 # encoding: utf8
-import operator
 from django.test import TestCase
 from django.db.migrations.optimizer import MigrationOptimizer
 from django.db import migrations
@@ -65,7 +64,7 @@ class OptimizerTests(TestCase):
         self.assertOptimizesTo(
             [migrations.DeleteModel("Foo")],
             [migrations.DeleteModel("Foo")],
-            exact = 1,
+            exact=1,
         )
 
     def test_create_delete_model(self):

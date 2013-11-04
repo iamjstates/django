@@ -15,7 +15,7 @@ from django.utils.html import conditional_escape, format_html
 from django.utils.translation import ugettext_lazy
 from django.utils.encoding import force_text, python_2_unicode_compatible
 from django.utils.safestring import mark_safe
-from django.utils import datetime_safe, formats, six
+from django.utils import formats, six
 from django.utils.six.moves.urllib.parse import urljoin
 
 __all__ = (
@@ -29,6 +29,7 @@ __all__ = (
 )
 
 MEDIA_TYPES = ('css', 'js')
+
 
 @python_2_unicode_compatible
 class Media(object):
@@ -103,6 +104,7 @@ class Media(object):
             getattr(combined, 'add_' + name)(getattr(other, '_' + name, None))
         return combined
 
+
 def media_property(cls):
     def _media(self):
         # Get the media property of the superclass, if it exists
@@ -130,6 +132,7 @@ def media_property(cls):
             return base
     return property(_media)
 
+
 class MediaDefiningClass(type):
     """
     Metaclass for classes that can have media definitions.
@@ -142,6 +145,7 @@ class MediaDefiningClass(type):
             new_class.media = media_property(new_class)
 
         return new_class
+
 
 @python_2_unicode_compatible
 class SubWidget(object):
@@ -160,9 +164,10 @@ class SubWidget(object):
             args.append(self.choices)
         return self.parent_widget.render(*args)
 
+
 class Widget(six.with_metaclass(MediaDefiningClass)):
-    is_hidden = False          # Determines whether this corresponds to an <input type="hidden">.
-    needs_multipart_form = False # Determines does this widget need multipart form
+    is_hidden = False             # Determines whether this corresponds to an <input type="hidden">.
+    needs_multipart_form = False  # Determines does this widget need multipart form
     is_localized = False
     is_required = False
 
@@ -222,12 +227,13 @@ class Widget(six.with_metaclass(MediaDefiningClass)):
         """
         return id_
 
+
 class Input(Widget):
     """
     Base class for all <input> widgets (except type='checkbox' and
     type='radio', which are special).
     """
-    input_type = None # Subclasses must define this.
+    input_type = None  # Subclasses must define this.
 
     def _format_value(self, value):
         if self.is_localized:
@@ -277,9 +283,11 @@ class PasswordInput(TextInput):
             value = None
         return super(PasswordInput, self).render(name, value, attrs)
 
+
 class HiddenInput(Input):
     input_type = 'hidden'
     is_hidden = True
+
 
 class MultipleHiddenInput(HiddenInput):
     """
@@ -311,6 +319,7 @@ class MultipleHiddenInput(HiddenInput):
             return data.getlist(name)
         return data.get(name, None)
 
+
 class FileInput(Input):
     input_type = 'file'
     needs_multipart_form = True
@@ -324,6 +333,7 @@ class FileInput(Input):
 
 
 FILE_INPUT_CONTRADICTION = object()
+
 
 class ClearableFileInput(FileInput):
     initial_text = ugettext_lazy('Currently')
@@ -377,7 +387,8 @@ class ClearableFileInput(FileInput):
     def value_from_datadict(self, data, files, name):
         upload = super(ClearableFileInput, self).value_from_datadict(data, files, name)
         if not self.is_required and CheckboxInput().value_from_datadict(
-            data, files, self.clear_checkbox_name(name)):
+                data, files, self.clear_checkbox_name(name)):
+
             if upload:
                 # If the user contradicts themselves (uploads a new file AND
                 # checks the "clear" checkbox), we return a unique marker
@@ -386,6 +397,7 @@ class ClearableFileInput(FileInput):
             # False signals to clear any existing value, as opposed to just None
             return False
         return upload
+
 
 class Textarea(Widget):
     def __init__(self, attrs=None):
@@ -512,6 +524,7 @@ class Select(Widget):
             else:
                 output.append(self.render_option(selected_choices, option_value, option_label))
         return '\n'.join(output)
+
 
 class NullBooleanSelect(Select):
     """
@@ -643,7 +656,7 @@ class ChoiceFieldRenderer(object):
         self.choices = choices
 
     def __getitem__(self, idx):
-        choice = self.choices[idx] # Let the IndexError propogate
+        choice = self.choices[idx]  # Let the IndexError propogate
         return self.choice_input_class(self.name, self.value, self.attrs.copy(), choice, idx)
 
     def __str__(self):
@@ -846,6 +859,7 @@ class SplitDateTimeWidget(MultiWidget):
             value = to_current_timezone(value)
             return [value.date(), value.time().replace(microsecond=0)]
         return [None, None]
+
 
 class SplitHiddenDateTimeWidget(SplitDateTimeWidget):
     """

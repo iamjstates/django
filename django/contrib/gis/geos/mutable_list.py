@@ -12,6 +12,7 @@ from django.utils.functional import total_ordering
 from django.utils import six
 from django.utils.six.moves import xrange
 
+
 @total_ordering
 class ListMixin(object):
     """
@@ -144,7 +145,7 @@ class ListMixin(object):
             del self[:]
         else:
             cache = list(self)
-            for i in range(n-1):
+            for i in range(n - 1):
                 self.extend(cache)
         return self
 

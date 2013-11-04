@@ -7,14 +7,17 @@ be interpreted by the HTML engine (e.g. '<') into the appropriate entities.
 from django.utils.functional import curry, Promise, allow_lazy
 from django.utils import six
 
+
 class EscapeData(object):
     pass
+
 
 class EscapeBytes(bytes, EscapeData):
     """
     A byte string that should be HTML-escaped when output.
     """
     __new__ = allow_lazy(bytes.__new__, bytes)
+
 
 class EscapeText(six.text_type, EscapeData):
     """
@@ -29,6 +32,7 @@ else:
     # backwards compatibility for Python 2
     EscapeUnicode = EscapeText
 
+
 class SafeData(object):
     def __html__(self):
         """
@@ -37,6 +41,7 @@ class SafeData(object):
         Allows interoperability with other template engines.
         """
         return self
+
 
 class SafeBytes(bytes, SafeData):
     """
@@ -71,6 +76,7 @@ class SafeBytes(bytes, SafeData):
             return SafeText(data)
 
     decode = curry(_proxy_method, method=bytes.decode)
+
 
 class SafeText(six.text_type, SafeData):
     """
@@ -111,6 +117,7 @@ else:
     # backwards compatibility for Python 2
     SafeUnicode = SafeText
 
+
 def mark_safe(s):
     """
     Explicitly mark a string as safe for (HTML) output purposes. The returned
@@ -125,6 +132,7 @@ def mark_safe(s):
     if isinstance(s, (six.text_type, Promise)):
         return SafeText(s)
     return SafeString(str(s))
+
 
 def mark_for_escaping(s):
     """

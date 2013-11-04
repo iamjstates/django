@@ -2,7 +2,6 @@
 from __future__ import unicode_literals
 import warnings
 
-from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin.sites import AdminSite
 from django.contrib.contenttypes.generic import (
@@ -73,7 +72,7 @@ class GenericAdminViewTest(TestCase):
             "generic_inline_admin-media-content_type-object_id-MAX_NUM_FORMS": "0",
         }
         response = self.client.post('/generic_inline_admin/admin/generic_inline_admin/episode/add/', post_data)
-        self.assertEqual(response.status_code, 302) # redirect somewhere
+        self.assertEqual(response.status_code, 302)  # redirect somewhere
 
     def testBasicEditPost(self):
         """
@@ -94,7 +93,7 @@ class GenericAdminViewTest(TestCase):
         }
         url = '/generic_inline_admin/admin/generic_inline_admin/episode/%d/' % self.episode_pk
         response = self.client.post(url, post_data)
-        self.assertEqual(response.status_code, 302) # redirect somewhere
+        self.assertEqual(response.status_code, 302)  # redirect somewhere
 
     def testGenericInlineFormset(self):
         EpisodeMediaFormSet = generic_inlineformset_factory(Media, can_delete=False, exclude=['description', 'keywords'], extra=3)
@@ -129,6 +128,7 @@ class GenericAdminViewTest(TestCase):
         e = Episode.objects.get(name='This Week in Django')
         formset = inline_formset(instance=e)
         self.assertTrue(formset.get_queryset().ordered)
+
 
 @override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',))
 class GenericInlineAdminParametersTest(TestCase):
@@ -209,7 +209,8 @@ class GenericInlineAdminWithUniqueTogetherTest(TestCase):
         response = self.client.get('/generic_inline_admin/admin/generic_inline_admin/contact/add/')
         self.assertEqual(response.status_code, 200)
         response = self.client.post('/generic_inline_admin/admin/generic_inline_admin/contact/add/', post_data)
-        self.assertEqual(response.status_code, 302) # redirect somewhere
+        self.assertEqual(response.status_code, 302)  # redirect somewhere
+
 
 class NoInlineDeletionTest(TestCase):
     urls = "generic_inline_admin.urls"
@@ -224,6 +225,7 @@ class NoInlineDeletionTest(TestCase):
 
 class MockRequest(object):
     pass
+
 
 class MockSuperUser(object):
     def has_perm(self, perm):

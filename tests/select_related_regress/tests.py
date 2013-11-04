@@ -5,7 +5,7 @@ from django.utils import six
 
 from .models import (Building, Child, Device, Port, Item, Country, Connection,
     ClientStatus, State, Client, SpecialClient, TUser, Person, Student,
-    Organizer, Class, Enrollment, Hen, Chick, Base, A, B, C)
+    Organizer, Class, Enrollment, Hen, Chick, A, B, C)
 
 
 class SelectRelatedRegressTests(TestCase):
@@ -58,8 +58,8 @@ class SelectRelatedRegressTests(TestCase):
         usp = Person.objects.create(user=us)
         uo = TUser.objects.create(name="org")
         uop = Person.objects.create(user=uo)
-        s = Student.objects.create(person = usp)
-        o = Organizer.objects.create(person = uop)
+        s = Student.objects.create(person=usp)
+        o = Organizer.objects.create(person=uop)
         c = Class.objects.create(org=o)
         Enrollment.objects.create(std=s, cls=c)
 

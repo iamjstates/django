@@ -22,12 +22,12 @@ rather than the HTML rendered to the end-user.
 """
 from __future__ import unicode_literals
 
-from django.conf import settings
 from django.core import mail
 from django.test import Client, TestCase, RequestFactory
 from django.test.utils import override_settings
 
 from .views import get_view
+
 
 @override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',))
 class ClientTest(TestCase):
@@ -92,6 +92,18 @@ class ClientTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.templates[0].name, "Book template")
         self.assertEqual(response.content, b"Blink - Malcolm Gladwell")
+
+    def test_insecure(self):
+        "GET a URL through http"
+        response = self.client.get('/test_client/secure_view/', secure=False)
+        self.assertFalse(response.test_was_secure_request)
+        self.assertEqual(response.test_server_port, '80')
+
+    def test_secure(self):
+        "GET a URL through https"
+        response = self.client.get('/test_client/secure_view/', secure=True)
+        self.assertTrue(response.test_was_secure_request)
+        self.assertEqual(response.test_server_port, '443')
 
     def test_redirect(self):
         "GET a URL that redirects elsewhere"
@@ -418,7 +430,6 @@ class ClientTest(TestCase):
         except KeyError:
             pass
 
-        from django.contrib.sessions.models import Session
         self.client.post('/test_client/session_view/')
 
         # Check that the session was modified
@@ -428,7 +439,7 @@ class ClientTest(TestCase):
         "Request a page that is known to throw an error"
         self.assertRaises(KeyError, self.client.get, "/test_client/broken_view/")
 
-        #Try the same assertion, a different way
+        # Try the same assertion, a different way
         try:
             self.client.get('/test_client/broken_view/')
             self.fail('Should raise an error')
@@ -469,7 +480,7 @@ class ClientTest(TestCase):
 
 
 @override_settings(
-    MIDDLEWARE_CLASSES = ('django.middleware.csrf.CsrfViewMiddleware',)
+    MIDDLEWARE_CLASSES=('django.middleware.csrf.CsrfViewMiddleware',)
 )
 class CSRFEnabledClientTests(TestCase):
     def test_csrf_enabled_client(self):
@@ -487,6 +498,7 @@ class CSRFEnabledClientTests(TestCase):
 
 class CustomTestClient(Client):
     i_am_customized = "Yes"
+
 
 class CustomTestClientTest(TestCase):
     client_class = CustomTestClient

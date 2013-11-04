@@ -23,6 +23,7 @@ __all__ = ('BaseForm', 'Form')
 
 NON_FIELD_ERRORS = '__all__'
 
+
 def pretty_name(name):
     """Converts 'first_name' to 'First name'"""
     if not name:
@@ -120,7 +121,7 @@ class BaseForm(object):
         # Translators: This is the default suffix added to form field labels
         self.label_suffix = label_suffix if label_suffix is not None else _(':')
         self.empty_permitted = empty_permitted
-        self._errors = None # Stores the errors after clean() has been called.
+        self._errors = None  # Stores the errors after clean() has been called.
         self._changed_data = None
 
         # The base_fields class attribute is the *class-wide* definition of
@@ -176,7 +177,7 @@ class BaseForm(object):
 
     def _html_output(self, normal_row, error_row, row_ender, help_text_html, errors_on_separate_row):
         "Helper function for outputting HTML. Used by as_table(), as_ul(), as_p()."
-        top_errors = self.non_field_errors() # Errors that should be displayed above all fields.
+        top_errors = self.non_field_errors()  # Errors that should be displayed above all fields.
         output, hidden_fields = [], []
 
         for name, field in self.fields.items():
@@ -223,7 +224,7 @@ class BaseForm(object):
         if top_errors:
             output.insert(0, error_row % force_text(top_errors))
 
-        if hidden_fields: # Insert any hidden fields in the last row.
+        if hidden_fields:  # Insert any hidden fields in the last row.
             str_hidden = ''.join(hidden_fields)
             if output:
                 last_row = output[-1]
@@ -248,29 +249,29 @@ class BaseForm(object):
     def as_table(self):
         "Returns this form rendered as HTML <tr>s -- excluding the <table></table>."
         return self._html_output(
-            normal_row = '<tr%(html_class_attr)s><th>%(label)s</th><td>%(errors)s%(field)s%(help_text)s</td></tr>',
-            error_row = '<tr><td colspan="2">%s</td></tr>',
-            row_ender = '</td></tr>',
-            help_text_html = '<br /><span class="helptext">%s</span>',
-            errors_on_separate_row = False)
+            normal_row='<tr%(html_class_attr)s><th>%(label)s</th><td>%(errors)s%(field)s%(help_text)s</td></tr>',
+            error_row='<tr><td colspan="2">%s</td></tr>',
+            row_ender='</td></tr>',
+            help_text_html='<br /><span class="helptext">%s</span>',
+            errors_on_separate_row=False)
 
     def as_ul(self):
         "Returns this form rendered as HTML <li>s -- excluding the <ul></ul>."
         return self._html_output(
-            normal_row = '<li%(html_class_attr)s>%(errors)s%(label)s %(field)s%(help_text)s</li>',
-            error_row = '<li>%s</li>',
-            row_ender = '</li>',
-            help_text_html = ' <span class="helptext">%s</span>',
-            errors_on_separate_row = False)
+            normal_row='<li%(html_class_attr)s>%(errors)s%(label)s %(field)s%(help_text)s</li>',
+            error_row='<li>%s</li>',
+            row_ender='</li>',
+            help_text_html=' <span class="helptext">%s</span>',
+            errors_on_separate_row=False)
 
     def as_p(self):
         "Returns this form rendered as HTML <p>s."
         return self._html_output(
-            normal_row = '<p%(html_class_attr)s>%(label)s %(field)s%(help_text)s</p>',
-            error_row = '%s',
-            row_ender = '</p>',
-            help_text_html = ' <span class="helptext">%s</span>',
-            errors_on_separate_row = True)
+            normal_row='<p%(html_class_attr)s>%(label)s %(field)s%(help_text)s</p>',
+            error_row='%s',
+            row_ender='</p>',
+            help_text_html=' <span class="helptext">%s</span>',
+            errors_on_separate_row=True)
 
     def non_field_errors(self):
         """
@@ -295,7 +296,7 @@ class BaseForm(object):
         self.cleaned_data.
         """
         self._errors = ErrorDict()
-        if not self.is_bound: # Stop further processing.
+        if not self.is_bound:  # Stop further processing.
             return
         self.cleaned_data = {}
         # If the form is permitted to be empty, and none of the form data has

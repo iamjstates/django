@@ -17,7 +17,7 @@ from django.utils.encoding import force_str, force_text
 from django.utils import six
 
 # For backwards compatibility -- lots of code uses this in the wild!
-from django.http.response import REASON_PHRASES as STATUS_CODE_TEXT
+from django.http.response import REASON_PHRASES as STATUS_CODE_TEXT  # NOQA
 
 logger = logging.getLogger('django.request')
 
@@ -52,7 +52,7 @@ class LimitedStream(object):
         elif size < len(self.buffer):
             result = self.buffer[:size]
             self.buffer = self.buffer[size:]
-        else: # size >= len(self.buffer)
+        else:  # size >= len(self.buffer)
             result = self.buffer + self._read_limited(size - len(self.buffer))
             self.buffer = b''
         return result

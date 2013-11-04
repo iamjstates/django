@@ -21,13 +21,15 @@ HIDDEN_SETTINGS = re.compile('API|TOKEN|KEY|SECRET|PASS|PROFANITIES_LIST|SIGNATU
 
 CLEANSED_SUBSTITUTE = '********************'
 
+
 def linebreak_iter(template_source):
     yield 0
     p = template_source.find('\n')
     while p >= 0:
-        yield p+1
-        p = template_source.find('\n', p+1)
+        yield p + 1
+        p = template_source.find('\n', p + 1)
     yield len(template_source) + 1
+
 
 def cleanse_setting(key, value):
     """Cleanse an individual setting key/value of sensitive content.
@@ -46,7 +48,12 @@ def cleanse_setting(key, value):
     except TypeError:
         # If the key isn't regex-able, just return as-is.
         cleansed = value
+
+    if callable(cleansed):
+        cleansed.do_not_call_in_templates = True
+
     return cleansed
+
 
 def get_safe_settings():
     "Returns a dictionary of the settings module, with sensitive settings blurred out."
@@ -55,6 +62,7 @@ def get_safe_settings():
         if k.isupper():
             settings_dict[k] = cleanse_setting(k, getattr(settings, k))
     return settings_dict
+
 
 def technical_500_response(request, exc_type, exc_value, tb):
     """
@@ -72,6 +80,7 @@ def technical_500_response(request, exc_type, exc_value, tb):
 # Cache for the default exception reporter filter instance.
 default_exception_reporter_filter = None
 
+
 def get_exception_reporter_filter(request):
     global default_exception_reporter_filter
     if default_exception_reporter_filter is None:
@@ -82,6 +91,7 @@ def get_exception_reporter_filter(request):
         return getattr(request, 'exception_reporter_filter', default_exception_reporter_filter)
     else:
         return default_exception_reporter_filter
+
 
 class ExceptionReporterFilter(object):
     """
@@ -103,6 +113,7 @@ class ExceptionReporterFilter(object):
 
     def get_traceback_frame_variables(self, request, tb_frame):
         return list(six.iteritems(tb_frame.f_locals))
+
 
 class SafeExceptionReporterFilter(ExceptionReporterFilter):
     """
@@ -217,6 +228,7 @@ class SafeExceptionReporterFilter(ExceptionReporterFilter):
 
         return cleansed.items()
 
+
 class ExceptionReporter(object):
     """
     A class to organize and coordinate reporting on exceptions.
@@ -290,7 +302,7 @@ class ExceptionReporter(object):
             end = getattr(self.exc_value, 'end', None)
             if start is not None and end is not None:
                 unicode_str = self.exc_value.args[1]
-                unicode_hint = smart_text(unicode_str[max(start-5, 0):min(end+5, len(unicode_str))], 'ascii', errors='replace')
+                unicode_hint = smart_text(unicode_str[max(start - 5, 0):min(end + 5, len(unicode_str))], 'ascii', errors='replace')
         from django import get_version
         c = {
             'is_email': self.is_email,
@@ -407,7 +419,7 @@ class ExceptionReporter(object):
 
         pre_context = source[lower_bound:lineno]
         context_line = source[lineno]
-        post_context = source[lineno+1:upper_bound]
+        post_context = source[lineno + 1:upper_bound]
 
         return lower_bound, pre_context, context_line, post_context
 
@@ -479,13 +491,14 @@ def technical_404_response(request, exception):
     c = Context({
         'urlconf': urlconf,
         'root_urlconf': settings.ROOT_URLCONF,
-        'request_path': request.path_info[1:], # Trim leading slash
+        'request_path': request.path_info[1:],  # Trim leading slash
         'urlpatterns': tried,
         'reason': force_bytes(exception, errors='replace'),
         'request': request,
         'settings': get_safe_settings(),
     })
     return HttpResponseNotFound(t.render(c), content_type='text/html')
+
 
 def default_urlconf(request):
     "Create an empty URLconf 404 error response."

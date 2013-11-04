@@ -1,7 +1,6 @@
 from __future__ import unicode_literals
 
 import datetime
-import os
 import re
 import sys
 from unittest import skipIf
@@ -13,10 +12,8 @@ try:
 except ImportError:
     pytz = None
 
-from django.conf import settings
 from django.core import serializers
 from django.core.urlresolvers import reverse
-from django.db import connection
 from django.db.models import Min, Max
 from django.http import HttpRequest
 from django.template import Context, RequestContext, Template, TemplateSyntaxError
@@ -753,8 +750,8 @@ class TemplateTests(TestCase):
         templates = {
             'notag': Template("{% load tz %}{{ dt }}|{{ dt|localtime }}|{{ dt|utc }}|{{ dt|timezone:ICT }}"),
             'noarg': Template("{% load tz %}{% localtime %}{{ dt }}|{{ dt|localtime }}|{{ dt|utc }}|{{ dt|timezone:ICT }}{% endlocaltime %}"),
-            'on':    Template("{% load tz %}{% localtime on %}{{ dt }}|{{ dt|localtime }}|{{ dt|utc }}|{{ dt|timezone:ICT }}{% endlocaltime %}"),
-            'off':   Template("{% load tz %}{% localtime off %}{{ dt }}|{{ dt|localtime }}|{{ dt|utc }}|{{ dt|timezone:ICT }}{% endlocaltime %}"),
+            'on': Template("{% load tz %}{% localtime on %}{{ dt }}|{{ dt|localtime }}|{{ dt|utc }}|{{ dt|timezone:ICT }}{% endlocaltime %}"),
+            'off': Template("{% load tz %}{% localtime off %}{{ dt }}|{{ dt|localtime }}|{{ dt|utc }}|{{ dt|timezone:ICT }}{% endlocaltime %}"),
         }
 
         # Transform a list of keys in 'datetimes' to the expected template
@@ -768,26 +765,26 @@ class TemplateTests(TestCase):
             'utc': {
                 'notag': t('eat', 'eat', 'utc', 'ict'),
                 'noarg': t('eat', 'eat', 'utc', 'ict'),
-                'on':    t('eat', 'eat', 'utc', 'ict'),
-                'off':   t('utc', 'eat', 'utc', 'ict'),
+                'on': t('eat', 'eat', 'utc', 'ict'),
+                'off': t('utc', 'eat', 'utc', 'ict'),
             },
             'eat': {
                 'notag': t('eat', 'eat', 'utc', 'ict'),
                 'noarg': t('eat', 'eat', 'utc', 'ict'),
-                'on':    t('eat', 'eat', 'utc', 'ict'),
-                'off':   t('eat', 'eat', 'utc', 'ict'),
+                'on': t('eat', 'eat', 'utc', 'ict'),
+                'off': t('eat', 'eat', 'utc', 'ict'),
             },
             'ict': {
                 'notag': t('eat', 'eat', 'utc', 'ict'),
                 'noarg': t('eat', 'eat', 'utc', 'ict'),
-                'on':    t('eat', 'eat', 'utc', 'ict'),
-                'off':   t('ict', 'eat', 'utc', 'ict'),
+                'on': t('eat', 'eat', 'utc', 'ict'),
+                'off': t('ict', 'eat', 'utc', 'ict'),
             },
             'naive': {
                 'notag': t('naive', 'eat', 'utc', 'ict'),
                 'noarg': t('naive', 'eat', 'utc', 'ict'),
-                'on':    t('naive', 'eat', 'utc', 'ict'),
-                'off':   t('naive', 'eat', 'utc', 'ict'),
+                'on': t('naive', 'eat', 'utc', 'ict'),
+                'off': t('naive', 'eat', 'utc', 'ict'),
             }
         }
 

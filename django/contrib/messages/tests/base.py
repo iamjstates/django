@@ -4,6 +4,7 @@ from django import http
 from django.conf import settings, global_settings
 from django.contrib.messages import constants, utils, get_level, set_level
 from django.contrib.messages.api import MessageFailure
+from django.contrib.messages.constants import DEFAULT_LEVELS
 from django.contrib.messages.storage import default_storage, base
 from django.contrib.messages.storage.base import Message
 from django.core.urlresolvers import reverse
@@ -57,12 +58,12 @@ class BaseTests(object):
 
     def setUp(self):
         self.settings_override = override_settings_tags(
-            TEMPLATE_DIRS = (),
-            TEMPLATE_CONTEXT_PROCESSORS = global_settings.TEMPLATE_CONTEXT_PROCESSORS,
-            MESSAGE_TAGS = '',
-            MESSAGE_STORAGE = '%s.%s' % (self.storage_class.__module__,
+            TEMPLATE_DIRS=(),
+            TEMPLATE_CONTEXT_PROCESSORS=global_settings.TEMPLATE_CONTEXT_PROCESSORS,
+            MESSAGE_TAGS='',
+            MESSAGE_STORAGE='%s.%s' % (self.storage_class.__module__,
                                          self.storage_class.__name__),
-            SESSION_SERIALIZER = 'django.contrib.sessions.serializers.JSONSerializer',
+            SESSION_SERIALIZER='django.contrib.sessions.serializers.JSONSerializer',
         )
         self.settings_override.enable()
 
@@ -188,6 +189,13 @@ class BaseTests(object):
             response = self.client.get(show_url)
             for msg in data['messages']:
                 self.assertNotContains(response, msg)
+
+    def test_context_processor_message_levels(self):
+        show_url = reverse('django.contrib.messages.tests.urls.show_template_response')
+        response = self.client.get(show_url)
+
+        self.assertTrue('DEFAULT_MESSAGE_LEVELS' in response.context)
+        self.assertEqual(response.context['DEFAULT_MESSAGE_LEVELS'], DEFAULT_LEVELS)
 
     @override_settings(MESSAGE_LEVEL=constants.DEBUG)
     def test_multiple_posts(self):

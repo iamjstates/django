@@ -8,7 +8,7 @@ import sys
 
 from django.conf import settings
 from django.core import exceptions
-from django.db import connections, router, transaction, DatabaseError, IntegrityError
+from django.db import connections, router, transaction, IntegrityError
 from django.db.models.constants import LOOKUP_SEP
 from django.db.models.fields import AutoField, Empty
 from django.db.models.query_utils import (Q, select_related_descend,
@@ -1359,7 +1359,7 @@ def get_klass_info(klass, max_depth=0, cur_depth=0, requested=None,
                 next = requested[f.name]
             else:
                 next = None
-            klass_info = get_klass_info(f.rel.to, max_depth=max_depth, cur_depth=cur_depth+1,
+            klass_info = get_klass_info(f.rel.to, max_depth=max_depth, cur_depth=cur_depth + 1,
                                         requested=next, only_load=only_load)
             related_fields.append((f, klass_info))
 
@@ -1627,16 +1627,16 @@ def prefetch_related_objects(result_cache, related_lookups):
     from a QuerySet
     """
     if len(result_cache) == 0:
-        return # nothing to do
+        return  # nothing to do
 
     # We need to be able to dynamically add to the list of prefetch_related
     # lookups that we look up (see below).  So we need some book keeping to
     # ensure we don't do duplicate work.
-    done_lookups = set() # list of lookups like foo__bar__baz
+    done_lookups = set()  # list of lookups like foo__bar__baz
     done_queries = {}    # dictionary of things like 'foo__bar': [results]
 
-    auto_lookups = [] # we add to this as we go through.
-    followed_descriptors = set() # recursion protection
+    auto_lookups = []  # we add to this as we go through.
+    followed_descriptors = set()  # recursion protection
 
     all_lookups = itertools.chain(related_lookups, auto_lookups)
     for lookup in all_lookups:

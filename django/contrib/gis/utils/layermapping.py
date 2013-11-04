@@ -24,17 +24,22 @@ from django.utils.encoding import force_text
 class LayerMapError(Exception):
     pass
 
+
 class InvalidString(LayerMapError):
     pass
+
 
 class InvalidDecimal(LayerMapError):
     pass
 
+
 class InvalidInteger(LayerMapError):
     pass
 
+
 class MissingForeignKey(LayerMapError):
     pass
+
 
 class LayerMapping(object):
     "A class that maps OGR Layers to GeoDjango Models."
@@ -124,7 +129,7 @@ class LayerMapping(object):
 
         if unique:
             self.check_unique(unique)
-            transaction_mode = 'autocommit' # Has to be set to autocommit.
+            transaction_mode = 'autocommit'  # Has to be set to autocommit.
             self.unique = unique
         else:
             self.unique = None
@@ -281,7 +286,7 @@ class LayerMapping(object):
         else:
             raise TypeError('Unique keyword argument must be set with a tuple, list, or string.')
 
-    #### Keyword argument retrieval routines ####
+    # Keyword argument retrieval routines ####
     def feature_kwargs(self, feat):
         """
         Given an OGR Feature, this will return a dictionary of keyword arguments
@@ -354,7 +359,7 @@ class LayerMapping(object):
             # Getting the decimal value as a tuple.
             dtup = d.as_tuple()
             digits = dtup[1]
-            d_idx = dtup[2] # index where the decimal is
+            d_idx = dtup[2]  # index where the decimal is
 
             # Maximum amount of precision, or digits to the left of the decimal.
             max_prec = model_field.max_digits - model_field.decimal_places
@@ -595,7 +600,7 @@ class LayerMapping(object):
             for i, end in enumerate(indices):
                 # Constructing the slice to use for this step; the last slice is
                 # special (e.g, [100:] instead of [90:100]).
-                if i+1 == n_i:
+                if i + 1 == n_i:
                     step_slice = slice(beg, None)
                 else:
                     step_slice = slice(beg, end)

@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
-import warnings
-
 from django.test import SimpleTestCase
 from django.utils import text
+
 
 class TestUtilsText(SimpleTestCase):
 

@@ -185,6 +185,7 @@ class BetterWriterForm(forms.ModelForm):
         model = BetterWriter
         fields = '__all__'
 
+
 class WriterProfileForm(forms.ModelForm):
     class Meta:
         model = WriterProfile
@@ -233,6 +234,7 @@ class ColourfulItemForm(forms.ModelForm):
         fields = '__all__'
 
 # model forms for testing work on #9321:
+
 
 class StatusNoteForm(forms.ModelForm):
     class Meta:
@@ -295,7 +297,7 @@ class ModelFormBaseTest(TestCase):
                 fields = '__all__'
 
         self.assertIsInstance(ReplaceField.base_fields['url'],
-                                     forms.fields.BooleanField)
+            forms.fields.BooleanField)
 
     def test_replace_field_variant_2(self):
         # Should have the same result as before,
@@ -308,7 +310,7 @@ class ModelFormBaseTest(TestCase):
                 fields = ['url']
 
         self.assertIsInstance(ReplaceField.base_fields['url'],
-                                     forms.fields.BooleanField)
+            forms.fields.BooleanField)
 
     def test_replace_field_variant_3(self):
         # Should have the same result as before,
@@ -318,10 +320,10 @@ class ModelFormBaseTest(TestCase):
 
             class Meta:
                 model = Category
-                fields = [] # url will still appear, since it is explicit above
+                fields = []  # url will still appear, since it is explicit above
 
         self.assertIsInstance(ReplaceField.base_fields['url'],
-                                     forms.fields.BooleanField)
+            forms.fields.BooleanField)
 
     def test_override_field(self):
         class WriterForm(forms.ModelForm):
@@ -348,7 +350,7 @@ class ModelFormBaseTest(TestCase):
             class CategoryForm(forms.ModelForm):
                 class Meta:
                     model = Category
-                    fields = ('url') # note the missing comma
+                    fields = ('url')  # note the missing comma
 
     def test_exclude_fields(self):
         class ExcludeFields(forms.ModelForm):
@@ -374,7 +376,7 @@ class ModelFormBaseTest(TestCase):
             class CategoryForm(forms.ModelForm):
                 class Meta:
                     model = Category
-                    exclude = ('url') # note the missing comma
+                    exclude = ('url')  # note the missing comma
 
     def test_confused_form(self):
         class ConfusedForm(forms.ModelForm):
@@ -415,7 +417,7 @@ class ModelFormBaseTest(TestCase):
         )
 
     def test_bad_form(self):
-        #First class with a Meta class wins...
+        # First class with a Meta class wins...
         class BadForm(ArticleForm, BaseCategoryForm):
             pass
 
@@ -582,6 +584,7 @@ class IncompleteCategoryFormWithFields(forms.ModelForm):
     class Meta:
         fields = ('name', 'slug')
         model = Category
+
 
 class IncompleteCategoryFormWithExclude(forms.ModelForm):
     """
@@ -788,6 +791,7 @@ class UniqueTest(TestCase):
             "slug": "Django 1.0"}, instance=p)
         self.assertTrue(form.is_valid())
 
+
 class ModelToDictTests(TestCase):
     """
     Tests for forms.models.model_to_dict
@@ -818,11 +822,47 @@ class ModelToDictTests(TestCase):
         with self.assertNumQueries(1):
             d = model_to_dict(art)
 
+        # Ensure all many-to-many categories appear in model_to_dict
+        for c in categories:
+            self.assertIn(c.pk, d['categories'])
+        # Ensure many-to-many relation appears as a list
+        self.assertIsInstance(d['categories'], list)
+
+    def test_reuse_prefetched(self):
+        # model_to_dict should not hit the database if it can reuse
+        # the data populated by prefetch_related.
+        categories = [
+            Category(name='TestName1', slug='TestName1', url='url1'),
+            Category(name='TestName2', slug='TestName2', url='url2'),
+            Category(name='TestName3', slug='TestName3', url='url3')
+        ]
+        for c in categories:
+            c.save()
+        writer = Writer(name='Test writer')
+        writer.save()
+
+        art = Article(
+            headline='Test article',
+            slug='test-article',
+            pub_date=datetime.date(1988, 1, 4),
+            writer=writer,
+            article='Hello.'
+        )
+        art.save()
+        for c in categories:
+            art.categories.add(c)
+
+        art = Article.objects.prefetch_related('categories').get(pk=art.pk)
+
+        with self.assertNumQueries(0):
+            d = model_to_dict(art)
+
         #Ensure all many-to-many categories appear in model_to_dict
         for c in categories:
             self.assertIn(c.pk, d['categories'])
         #Ensure many-to-many relation appears as a list
         self.assertIsInstance(d['categories'], list)
+
 
 class OldFormForXTests(TestCase):
     def test_base_form(self):
@@ -1309,11 +1349,11 @@ class OldFormForXTests(TestCase):
         self.assertIsInstance(f.clean([]), EmptyQuerySet)
         self.assertIsInstance(f.clean(()), EmptyQuerySet)
         with self.assertRaises(ValidationError):
-            f.clean(['10'])
+            f.clean(['0'])
         with self.assertRaises(ValidationError):
-            f.clean([str(c3.id), '10'])
+            f.clean([str(c3.id), '0'])
         with self.assertRaises(ValidationError):
-            f.clean([str(c1.id), '10'])
+            f.clean([str(c1.id), '0'])
 
         # queryset can be changed after the field is created.
         f.queryset = Category.objects.exclude(name='Fourth')

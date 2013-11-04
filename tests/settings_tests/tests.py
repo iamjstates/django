@@ -1,8 +1,7 @@
-import os
 import unittest
 import warnings
 
-from django.conf import settings, global_settings
+from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpRequest
 from django.test import SimpleTestCase, TransactionTestCase, TestCase, signals
@@ -76,6 +75,7 @@ class ClassDecoratedTestCase(ClassDecoratedTestCaseSuper):
 @override_settings(TEST='override-parent')
 class ParentDecoratedTestCase(TestCase):
     pass
+
 
 @override_settings(TEST='override-child')
 class ChildDecoratedTestCase(ParentDecoratedTestCase):

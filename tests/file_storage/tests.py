@@ -15,7 +15,6 @@ try:
 except ImportError:
     import dummy_threading as threading
 
-from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import SuspiciousOperation, ImproperlyConfigured
 from django.core.files.base import File, ContentFile
@@ -69,6 +68,7 @@ class GetStorageClassTests(SimpleTestCase):
                 "\"No module named '?(django.core.files.)?non_existing_storage'?\""):
             get_storage_class(
                 'django.core.files.non_existing_storage.NonExistingStorage')
+
 
 class FileStorageTests(unittest.TestCase):
     storage_class = FileSystemStorage
@@ -261,15 +261,15 @@ class FileStorageTests(unittest.TestCase):
         """The storage backend should preserve case of filenames."""
         # Create a storage backend associated with the mixed case name
         # directory.
-        temp_storage = self.storage_class(location=self.temp_dir2)
+        other_temp_storage = self.storage_class(location=self.temp_dir2)
         # Ask that storage backend to store a file with a mixed case filename.
         mixed_case = 'CaSe_SeNsItIvE'
-        file = temp_storage.open(mixed_case, 'w')
+        file = other_temp_storage.open(mixed_case, 'w')
         file.write('storage contents')
         file.close()
         self.assertEqual(os.path.join(self.temp_dir2, mixed_case),
-                         temp_storage.path(mixed_case))
-        temp_storage.delete(mixed_case)
+                         other_temp_storage.path(mixed_case))
+        other_temp_storage.delete(mixed_case)
 
     def test_makedirs_race_handling(self):
         """
@@ -379,6 +379,7 @@ class CustomStorage(FileSystemStorage):
             number += 1
 
         return name
+
 
 class CustomStorageTests(FileStorageTests):
     storage_class = CustomStorage
@@ -532,6 +533,7 @@ class SlowFile(ContentFile):
         time.sleep(1)
         return super(ContentFile, self).chunks()
 
+
 class FileSaveRaceConditionTest(unittest.TestCase):
     def setUp(self):
         self.storage_dir = tempfile.mkdtemp()
@@ -552,6 +554,7 @@ class FileSaveRaceConditionTest(unittest.TestCase):
         self.assertTrue(self.storage.exists('conflict_1'))
         self.storage.delete('conflict')
         self.storage.delete('conflict_1')
+
 
 @unittest.skipIf(sys.platform.startswith('win'), "Windows only partially supports umasks and chmod.")
 class FileStoragePermissions(unittest.TestCase):
@@ -591,6 +594,7 @@ class FileStoragePermissions(unittest.TestCase):
         name = self.storage.save("the_directory/the_file", ContentFile("data"))
         dir_mode = os.stat(os.path.dirname(self.storage.path(name)))[0] & 0o777
         self.assertEqual(dir_mode, 0o777 & ~self.umask)
+
 
 class FileStoragePathParsing(unittest.TestCase):
     def setUp(self):

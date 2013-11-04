@@ -2,6 +2,7 @@ from django import template
 
 register = template.Library()
 
+
 @register.inclusion_tag('admin/prepopulated_fields_js.html', takes_context=True)
 def prepopulated_fields_js(context):
     """
@@ -18,6 +19,7 @@ def prepopulated_fields_js(context):
                     prepopulated_fields.extend(inline_admin_form.prepopulated_fields)
     context.update({'prepopulated_fields': prepopulated_fields})
     return context
+
 
 @register.inclusion_tag('admin/submit_line.html', takes_context=True)
 def submit_row(context):
@@ -43,10 +45,11 @@ def submit_row(context):
         ctx['original'] = context['original']
     return ctx
 
+
 @register.filter
 def cell_count(inline_admin_form):
     """Returns the number of cells used in a tabular inline"""
-    count = 1 # Hidden cell with hidden 'id' field
+    count = 1  # Hidden cell with hidden 'id' field
     for fieldset in inline_admin_form:
         # Loop through all the fields (one per cell)
         for line in fieldset:

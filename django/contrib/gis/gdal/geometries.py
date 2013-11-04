@@ -67,7 +67,7 @@ from django.utils.six.moves import xrange
 #
 # The OGR_G_* routines are relevant here.
 
-#### OGRGeometry Class ####
+
 class OGRGeometry(GDALBase):
     "Generally encapsulates an OGR geometry."
 
@@ -339,9 +339,9 @@ class OGRGeometry(GDALBase):
     def wkb(self):
         "Returns the WKB representation of the Geometry."
         if sys.byteorder == 'little':
-            byteorder = 1 # wkbNDR (from ogr_core.h)
+            byteorder = 1  # wkbNDR (from ogr_core.h)
         else:
-            byteorder = 0 # wkbXDR
+            byteorder = 0  # wkbXDR
         sz = self.wkb_size
         # Creating the unsigned character buffer, and passing it in by reference.
         buf = (c_ubyte * sz)()
@@ -522,6 +522,7 @@ class OGRGeometry(GDALBase):
         """
         return self._geomgen(capi.geom_union, other)
 
+
 # The subclasses for OGR Geometry.
 class Point(OGRGeometry):
 
@@ -549,6 +550,7 @@ class Point(OGRGeometry):
         elif self.coord_dim == 3:
             return (self.x, self.y, self.z)
     coords = tuple
+
 
 class LineString(OGRGeometry):
 
@@ -605,9 +607,11 @@ class LineString(OGRGeometry):
         if self.coord_dim == 3:
             return self._listarr(capi.getz)
 
+
 # LinearRings are used in Polygons.
 class LinearRing(LineString):
     pass
+
 
 class Polygon(OGRGeometry):
 
@@ -631,7 +635,7 @@ class Polygon(OGRGeometry):
     @property
     def shell(self):
         "Returns the shell of this Polygon."
-        return self[0] # First ring is the shell
+        return self[0]  # First ring is the shell
     exterior_ring = shell
 
     @property
@@ -653,6 +657,7 @@ class Polygon(OGRGeometry):
         p = OGRGeometry(OGRGeomType('Point'))
         capi.get_centroid(self.ptr, p.ptr)
         return p
+
 
 # Geometry Collection base class.
 class GeometryCollection(OGRGeometry):
@@ -700,12 +705,15 @@ class GeometryCollection(OGRGeometry):
         return tuple(self[i].tuple for i in xrange(self.geom_count))
     coords = tuple
 
+
 # Multiple Geometry types.
 class MultiPoint(GeometryCollection):
     pass
 
+
 class MultiLineString(GeometryCollection):
     pass
+
 
 class MultiPolygon(GeometryCollection):
     pass

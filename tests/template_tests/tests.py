@@ -45,6 +45,7 @@ from . import filters
 
 register = template.Library()
 
+
 class EchoNode(template.Node):
     def __init__(self, contents):
         self.contents = contents
@@ -52,8 +53,10 @@ class EchoNode(template.Node):
     def render(self, context):
         return " ".join(self.contents)
 
+
 def do_echo(parser, token):
     return EchoNode(token.contents.split()[1:])
+
 
 def do_upper(value):
     return value.upper()
@@ -68,17 +71,22 @@ template.libraries['testtags'] = register
 # Helper objects for template tests #
 #####################################
 
+
 class SomeException(Exception):
     silent_variable_failure = True
+
 
 class SomeOtherException(Exception):
     pass
 
+
 class ContextStackException(Exception):
     pass
 
+
 class ShouldNotExecuteException(Exception):
     pass
+
 
 class SomeClass:
     def __init__(self):
@@ -114,9 +122,11 @@ class SomeClass:
         raise SomeOtherException
     noisy_fail_attribute = property(noisy_fail_attribute)
 
+
 class OtherClass:
     def method(self):
         return "OtherClass.method"
+
 
 class TestObj(object):
     def is_true(self):
@@ -128,14 +138,17 @@ class TestObj(object):
     def is_bad(self):
         raise ShouldNotExecuteException()
 
+
 class SilentGetItemClass(object):
     def __getitem__(self, key):
         raise SomeException
+
 
 class SilentAttrClass(object):
     def b(self):
         raise SomeException
     b = property(b)
+
 
 @python_2_unicode_compatible
 class UTF8Class:
@@ -643,7 +656,7 @@ class TemplateTests(TransRealMixin, TestCase):
         settings.ALLOWED_INCLUDE_ROOTS = old_allowed_include_roots
 
         self.assertEqual(failures, [], "Tests failed:\n%s\n%s" %
-            ('-'*70, ("\n%s\n" % ('-'*70)).join(failures)))
+            ('-' * 70, ("\n%s\n" % ('-' * 70)).join(failures)))
 
     def render(self, test_template, vals):
         context = template.Context(vals[1])
@@ -677,7 +690,7 @@ class TemplateTests(TransRealMixin, TestCase):
             'basic-syntax06': ("{{ multi word variable }}", {}, template.TemplateSyntaxError),
 
             # Raise TemplateSyntaxError for empty variable tags
-            'basic-syntax07': ("{{ }}",        {}, template.TemplateSyntaxError),
+            'basic-syntax07': ("{{ }}", {}, template.TemplateSyntaxError),
             'basic-syntax08': ("{{        }}", {}, template.TemplateSyntaxError),
 
             # Attribute syntax allows a template to call an object's attribute
@@ -840,7 +853,7 @@ class TemplateTests(TransRealMixin, TestCase):
             # Numbers as filter arguments should work
             'filter-syntax19': ('{{ var|truncatewords:1 }}', {"var": "hello world"}, "hello ..."),
 
-            #filters should accept empty string constants
+            # filters should accept empty string constants
             'filter-syntax20': ('{{ ""|default_if_none:"was none" }}', {}, ""),
 
             # Fail silently for non-callable attribute and dict lookups which
@@ -1538,10 +1551,10 @@ class TemplateTests(TransRealMixin, TestCase):
                           '{% endfor %},'
                           '{% endfor %}',
                           {'data': [{'foo': 'c', 'bar': 1},
-                                     {'foo': 'd', 'bar': 1},
-                                     {'foo': 'a', 'bar': 2},
-                                     {'foo': 'b', 'bar': 2},
-                                     {'foo': 'x', 'bar': 3}]},
+                                    {'foo': 'd', 'bar': 1},
+                                    {'foo': 'a', 'bar': 2},
+                                    {'foo': 'b', 'bar': 2},
+                                    {'foo': 'x', 'bar': 3}]},
                           '1:cd,2:ab,3:x,'),
 
             # Test for silent failure when target variable isn't found
@@ -1582,13 +1595,13 @@ class TemplateTests(TransRealMixin, TestCase):
 
             # Test syntax
             'regroup05': ('{% regroup data by bar as %}', {},
-                           template.TemplateSyntaxError),
+                template.TemplateSyntaxError),
             'regroup06': ('{% regroup data by bar thisaintright grouped %}', {},
-                           template.TemplateSyntaxError),
+                template.TemplateSyntaxError),
             'regroup07': ('{% regroup data thisaintright bar as grouped %}', {},
-                           template.TemplateSyntaxError),
+                template.TemplateSyntaxError),
             'regroup08': ('{% regroup data by bar as grouped toomanyargs %}', {},
-                           template.TemplateSyntaxError),
+                template.TemplateSyntaxError),
 
             ### SSI TAG ########################################################
 
@@ -1685,11 +1698,11 @@ class TemplateTests(TransRealMixin, TestCase):
             'now01': ('{% now "j n Y" %}', {}, "%d %d %d" % (
                 datetime.now().day, datetime.now().month, datetime.now().year)),
             # Check parsing of locale strings
-            'now02': ('{% now "DATE_FORMAT" %}', {},  date_format(datetime.now())),
+            'now02': ('{% now "DATE_FORMAT" %}', {}, date_format(datetime.now())),
             # Also accept simple quotes - #15092
             'now03': ("{% now 'j n Y' %}", {}, "%d %d %d" % (
                 datetime.now().day, datetime.now().month, datetime.now().year)),
-            'now04': ("{% now 'DATE_FORMAT' %}", {},  date_format(datetime.now())),
+            'now04': ("{% now 'DATE_FORMAT' %}", {}, date_format(datetime.now())),
             'now05': ('''{% now 'j "n" Y'%}''', {}, '''%d "%d" %d''' % (
                 datetime.now().day, datetime.now().month, datetime.now().year)),
             'now06': ('''{% now "j 'n' Y"%}''', {}, '''%d '%d' %d''' % (

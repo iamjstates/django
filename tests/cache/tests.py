@@ -40,9 +40,11 @@ from django.views.decorators.cache import cache_page
 
 from .models import Poll, expensive_calculation
 
+
 # functions/classes for complex data type tests
 def f():
     return 42
+
 
 class C:
     def m(n):
@@ -434,13 +436,13 @@ class BaseCacheTests(object):
         it is an absolute expiration timestamp instead of a relative
         offset. Test that we honour this convention. Refs #12399.
         '''
-        self.cache.set('key1', 'eggs', 60*60*24*30 + 1)  # 30 days + 1 second
+        self.cache.set('key1', 'eggs', 60 * 60 * 24 * 30 + 1)  # 30 days + 1 second
         self.assertEqual(self.cache.get('key1'), 'eggs')
 
-        self.cache.add('key2', 'ham', 60*60*24*30 + 1)
+        self.cache.add('key2', 'ham', 60 * 60 * 24 * 30 + 1)
         self.assertEqual(self.cache.get('key2'), 'ham')
 
-        self.cache.set_many({'key3': 'sausage', 'key4': 'lobster bisque'}, 60*60*24*30 + 1)
+        self.cache.set_many({'key3': 'sausage', 'key4': 'lobster bisque'}, 60 * 60 * 24 * 30 + 1)
         self.assertEqual(self.cache.get('key3'), 'sausage')
         self.assertEqual(self.cache.get('key4'), 'lobster bisque')
 
@@ -823,6 +825,7 @@ class BaseCacheTests(object):
         self.assertEqual(get_cache_data.content, content.encode('utf-8'))
         self.assertEqual(get_cache_data.cookies, response.cookies)
 
+
 def custom_key_func(key, key_prefix, version):
     "A customized cache key function"
     return 'CUSTOM-' + '-'.join([key_prefix, str(version), key])
@@ -997,12 +1000,13 @@ class LocMemCacheTests(unittest.TestCase, BaseCacheTests):
         """incr/decr does not modify expiry time (matches memcached behavior)"""
         key = 'value'
         _key = self.cache.make_key(key)
-        self.cache.set(key, 1, timeout=self.cache.default_timeout*10)
+        self.cache.set(key, 1, timeout=self.cache.default_timeout * 10)
         expire = self.cache._expire_info[_key]
         self.cache.incr(key)
         self.assertEqual(expire, self.cache._expire_info[_key])
         self.cache.decr(key)
         self.assertEqual(expire, self.cache._expire_info[_key])
+
 
 # memcached backend isn't guaranteed to be available.
 # To check the memcached backend, the test settings file will
@@ -1486,7 +1490,7 @@ class CacheI18nTest(TestCase):
         request = self._get_request()
         response = HttpResponse()
         with timezone.override(CustomTzName()):
-            CustomTzName.name = 'Hora estándar de Argentina'.encode('UTF-8') # UTF-8 string
+            CustomTzName.name = 'Hora estándar de Argentina'.encode('UTF-8')  # UTF-8 string
             sanitized_name = 'Hora_estndar_de_Argentina'
             self.assertIn(sanitized_name, learn_cache_key(request, response),
                     "Cache keys should include the time zone name when time zones are active")
@@ -1581,6 +1585,7 @@ class CacheI18nTest(TestCase):
         get_cache_data = FetchFromCacheMiddleware().process_request(request)
         self.assertIsNone(get_cache_data)
 
+
 @override_settings(
     CACHES={
         'default': {
@@ -1645,9 +1650,9 @@ class CacheMiddlewareTest(IgnoreDeprecationWarningsMixin, TestCase):
         # First, test with "defaults":
         as_view_decorator = CacheMiddleware(cache_alias=None, key_prefix=None)
 
-        self.assertEqual(as_view_decorator.cache_timeout, 300) # Timeout value for 'default' cache, i.e. 300
+        self.assertEqual(as_view_decorator.cache_timeout, 300)  # Timeout value for 'default' cache, i.e. 300
         self.assertEqual(as_view_decorator.key_prefix, '')
-        self.assertEqual(as_view_decorator.cache_alias, 'default') # Value of DEFAULT_CACHE_ALIAS from django.core.cache
+        self.assertEqual(as_view_decorator.cache_alias, 'default')  # Value of DEFAULT_CACHE_ALIAS from django.core.cache
         self.assertEqual(as_view_decorator.cache_anonymous_only, False)
 
         # Next, test with custom values:
@@ -1815,6 +1820,7 @@ class CacheMiddlewareTest(IgnoreDeprecationWarningsMixin, TestCase):
         # .. even if it has a prefix
         response = other_with_prefix_view(request, '16')
         self.assertEqual(response.content, b'Hello World 16')
+
 
 @override_settings(
     CACHE_MIDDLEWARE_KEY_PREFIX='settingsprefix',

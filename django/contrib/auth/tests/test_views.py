@@ -21,7 +21,6 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.auth import SESSION_KEY, REDIRECT_FIELD_NAME
 from django.contrib.auth.forms import (AuthenticationForm, PasswordChangeForm,
                 SetPasswordForm)
-from django.contrib.auth.tests.custom_user import CustomUser
 from django.contrib.auth.tests.utils import skipIfCustomUser
 from django.contrib.auth.views import login as login_view
 
@@ -710,6 +709,7 @@ class LogoutTest(AuthViewsTestCase):
             self.assertTrue(good_url in response.url,
                             "%s should be allowed" % good_url)
             self.confirm_logged_out()
+
 
 @skipIfCustomUser
 @override_settings(

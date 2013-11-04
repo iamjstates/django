@@ -22,7 +22,7 @@ from django.db.models.related import PathInfo
 from django.db.models.sql import aggregates as base_aggregates_module
 from django.db.models.sql.constants import (QUERY_TERMS, ORDER_DIR, SINGLE,
         ORDER_PATTERN, JoinInfo, SelectInfo)
-from django.db.models.sql.datastructures import EmptyResultSet, Empty, MultiJoin
+from django.db.models.sql.datastructures import EmptyResultSet, Empty, MultiJoin, Col
 from django.db.models.sql.expressions import SQLEvaluator
 from django.db.models.sql.where import (WhereNode, Constraint, EverythingNode,
     ExtraWhere, AND, OR, EmptyWhere)
@@ -146,7 +146,7 @@ class Query(object):
         # The _aggregates will be an OrderedDict when used. Due to the cost
         # of creating OrderedDict this attribute is created lazily (in
         # self.aggregates property).
-        self._aggregates = None # Maps alias -> SQL aggregate function
+        self._aggregates = None  # Maps alias -> SQL aggregate function
         self.aggregate_select_mask = None
         self._aggregate_select_cache = None
 
@@ -740,7 +740,7 @@ class Query(object):
             self.unref_alias(alias, unref_amount)
 
     def promote_disjunction(self, aliases_before, alias_usage_counts,
-                            num_childs):
+                            num_childs, left_joins_before):
         """
         This method is to be used for promoting joins in ORed filters.
 
@@ -749,7 +749,8 @@ class Query(object):
         and isn't pre-existing needs to be promoted to LOUTER join.
         """
         for alias, use_count in alias_usage_counts.items():
-            if use_count < num_childs and alias not in aliases_before:
+            if ((use_count < num_childs and alias not in aliases_before)
+                    or alias in left_joins_before):
                 self.promote_joins([alias])
 
     def change_aliases(self, change_map):
@@ -819,6 +820,9 @@ class Query(object):
         conflict. Even tables that previously had no alias will get an alias
         after this call.
         """
+        if self.alias_prefix != outer_query.alias_prefix:
+            # No clashes between self and outer query should be possible.
+            return
         self.alias_prefix = chr(ord(self.alias_prefix) + 1)
         while self.alias_prefix in self.subq_aliases:
             self.alias_prefix = chr(ord(self.alias_prefix) + 1)
@@ -1314,9 +1318,14 @@ class Query(object):
         if connector == OR:
             alias_usage_counts = dict()
             aliases_before = set(self.tables)
+            left_joins_before = set()
         for child in q_object.children:
             if connector == OR:
                 refcounts_before = self.alias_refcount.copy()
+                left_joins_before = left_joins_before.union(set(
+                    t for t in self.alias_map
+                    if self.alias_map[t].join_type == self.LOUTER and
+                    self.alias_refcount[t] > 0))
             if isinstance(child, Node):
                 child_clause = self._add_q(
                     child, used_aliases, branch_negated,
@@ -1332,7 +1341,7 @@ class Query(object):
                     alias_usage_counts[alias] = alias_usage_counts.get(alias, 0) + 1
         if connector == OR:
             self.promote_disjunction(aliases_before, alias_usage_counts,
-                                     len(q_object.children))
+                                     len(q_object.children), left_joins_before)
         return target_clause
 
     def names_to_path(self, names, opts, allow_many):
@@ -1508,9 +1517,19 @@ class Query(object):
         # since we are adding a IN <subquery> clause. This prevents the
         # database from tripping over IN (...,NULL,...) selects and returning
         # nothing
+        alias, col = query.select[0].col
         if self.is_nullable(query.select[0].field):
-            alias, col = query.select[0].col
             query.where.add((Constraint(alias, col, query.select[0].field), 'isnull', False), AND)
+        if alias in can_reuse:
+            pk = query.select[0].field.model._meta.pk
+            # Need to add a restriction so that outer query's filters are in effect for
+            # the subquery, too.
+            query.bump_prefix(self)
+            query.where.add(
+                (Constraint(query.select[0].col[0], pk.column, pk),
+                 'exact', Col(alias, pk.column)),
+                AND
+            )
 
         condition = self.build_filter(
             ('%s__in' % trimmed_prefix, query),

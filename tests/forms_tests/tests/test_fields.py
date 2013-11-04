@@ -691,7 +691,7 @@ class FieldsTests(SimpleTestCase):
         self.assertEqual(SimpleUploadedFile, type(f.clean(SimpleUploadedFile('name', b'Some File Content'), 'files/test4.pdf')))
 
     def test_filefield_2(self):
-        f = FileField(max_length = 5)
+        f = FileField(max_length=5)
         self.assertRaisesMessage(ValidationError, "'Ensure this filename has at most 5 characters (it has 18).'", f.clean, SimpleUploadedFile('test_maxlength.txt', b'hello world'))
         self.assertEqual('files/test1.pdf', f.clean('', 'files/test1.pdf'))
         self.assertEqual('files/test2.pdf', f.clean(None, 'files/test2.pdf'))
@@ -760,11 +760,11 @@ class FieldsTests(SimpleTestCase):
     def test_url_regex_ticket11198(self):
         f = URLField()
         # hangs "forever" if catastrophic backtracking in ticket:#11198 not fixed
-        self.assertRaisesMessage(ValidationError, "'Enter a valid URL.'", f.clean, 'http://%s' % ("X"*200,))
+        self.assertRaisesMessage(ValidationError, "'Enter a valid URL.'", f.clean, 'http://%s' % ("X" * 200,))
 
         # a second test, to make sure the problem is really addressed, even on
         # domains that don't fail the domain label length check in the regex
-        self.assertRaisesMessage(ValidationError, "'Enter a valid URL.'", f.clean, 'http://%s' % ("X"*60,))
+        self.assertRaisesMessage(ValidationError, "'Enter a valid URL.'", f.clean, 'http://%s' % ("X" * 60,))
 
     def test_urlfield_2(self):
         f = URLField(required=False)

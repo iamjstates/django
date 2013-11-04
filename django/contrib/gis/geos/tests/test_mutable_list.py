@@ -39,17 +39,20 @@ class UserListA(ListMixin):
     def _get_single_external(self, index):
         return self._list[index]
 
+
 class UserListB(UserListA):
     _mytype = list
 
     def _set_single(self, index, value):
         self._list[index] = value
 
+
 def nextRange(length):
     nextRange.start += 100
     return range(nextRange.start, nextRange.start + length)
 
 nextRange.start = 0
+
 
 class ListMixinTest(unittest.TestCase):
     """
@@ -220,9 +223,9 @@ class ListMixinTest(unittest.TestCase):
             del x[i]
         pl, ul = self.lists_of_len()
         for i in (-1 - self.limit, self.limit):
-            self.assertRaises(IndexError, setfcn, ul, i) # 'set index %d' % i)
-            self.assertRaises(IndexError, getfcn, ul, i) # 'get index %d' % i)
-            self.assertRaises(IndexError, delfcn, ul, i) # 'del index %d' % i)
+            self.assertRaises(IndexError, setfcn, ul, i)  # 'set index %d' % i)
+            self.assertRaises(IndexError, getfcn, ul, i)  # 'get index %d' % i)
+            self.assertRaises(IndexError, delfcn, ul, i)  # 'del index %d' % i)
 
     def test06_list_methods(self):
         'List methods'
@@ -346,8 +349,8 @@ class ListMixinTest(unittest.TestCase):
         ul.sort()
         self.assertEqual(pl[:], ul[:], 'sort')
         mid = pl[len(pl) // 2]
-        pl.sort(key=lambda x: (mid-x)**2)
-        ul.sort(key=lambda x: (mid-x)**2)
+        pl.sort(key=lambda x: (mid - x) ** 2)
+        ul.sort(key=lambda x: (mid - x) ** 2)
         self.assertEqual(pl[:], ul[:], 'sort w/ key')
 
         pl.insert(0, pl.pop())
@@ -356,8 +359,8 @@ class ListMixinTest(unittest.TestCase):
         ul.sort(reverse=True)
         self.assertEqual(pl[:], ul[:], 'sort w/ reverse')
         mid = pl[len(pl) // 2]
-        pl.sort(key=lambda x: (mid-x)**2)
-        ul.sort(key=lambda x: (mid-x)**2)
+        pl.sort(key=lambda x: (mid - x) ** 2)
+        ul.sort(key=lambda x: (mid - x) ** 2)
         self.assertEqual(pl[:], ul[:], 'sort w/ key')
 
     def test_12_arithmetic(self):
@@ -417,6 +420,7 @@ class ListMixinTest(unittest.TestCase):
         pl[1] = -20
         self.assertTrue(pl < ul, 'cmp for lt self')
         self.assertTrue(pl < ul, 'cmp for lt self')
+
 
 class ListMixinTestSingle(ListMixinTest):
     listType = UserListB

@@ -24,6 +24,7 @@ except ImportError:
 
 __all__ = ['file_move_safe']
 
+
 def _samefile(src, dst):
     # Macintosh, Unix.
     if hasattr(os.path, 'samefile'):
@@ -36,7 +37,8 @@ def _samefile(src, dst):
     return (os.path.normcase(os.path.abspath(src)) ==
             os.path.normcase(os.path.abspath(dst)))
 
-def file_move_safe(old_file_name, new_file_name, chunk_size = 1024*64, allow_overwrite=False):
+
+def file_move_safe(old_file_name, new_file_name, chunk_size=1024 * 64, allow_overwrite=False):
     """
     Moves a file from one location to another in the safest way possible.
 

@@ -330,6 +330,7 @@ class FormfieldCallbackTests(TestCase):
                              formfield_callback=callback)
         self.assertCallbackCalled(callback)
 
+
 class BaseCustomDeleteFormSet(BaseFormSet):
     """
     A formset mix-in that lets a form decide if it's to be deleted.
@@ -454,3 +455,52 @@ class FormfieldShouldDeleteFormTests(TestCase):
         # verify no "odd" PKs left
         odd_ids = [user.pk for user in User.objects.all() if user.pk % 2]
         self.assertEqual(len(odd_ids), 0)
+
+
+class RedeleteTests(TestCase):
+    def test_resubmit(self):
+        u = User.objects.create(username='foo', serial=1)
+        us = UserSite.objects.create(user=u, data=7)
+        formset_cls = inlineformset_factory(User, UserSite, fields="__all__")
+        data = {
+            'serial': '1',
+            'username': 'foo',
+            'usersite_set-TOTAL_FORMS': '1',
+            'usersite_set-INITIAL_FORMS': '1',
+            'usersite_set-MAX_NUM_FORMS': '1',
+            'usersite_set-0-id': six.text_type(us.pk),
+            'usersite_set-0-data': '7',
+            'usersite_set-0-user': 'foo',
+            'usersite_set-0-DELETE': '1'
+        }
+        formset = formset_cls(data, instance=u)
+        self.assertTrue(formset.is_valid())
+        formset.save()
+        self.assertEqual(UserSite.objects.count(), 0)
+        formset = formset_cls(data, instance=u)
+        # Even if the "us" object isn't in the DB any more, the form
+        # validates.
+        self.assertTrue(formset.is_valid())
+        formset.save()
+        self.assertEqual(UserSite.objects.count(), 0)
+
+    def test_delete_already_deleted(self):
+        u = User.objects.create(username='foo', serial=1)
+        us = UserSite.objects.create(user=u, data=7)
+        formset_cls = inlineformset_factory(User, UserSite, fields="__all__")
+        data = {
+            'serial': '1',
+            'username': 'foo',
+            'usersite_set-TOTAL_FORMS': '1',
+            'usersite_set-INITIAL_FORMS': '1',
+            'usersite_set-MAX_NUM_FORMS': '1',
+            'usersite_set-0-id': six.text_type(us.pk),
+            'usersite_set-0-data': '7',
+            'usersite_set-0-user': 'foo',
+            'usersite_set-0-DELETE': '1'
+        }
+        formset = formset_cls(data, instance=u)
+        us.delete()
+        self.assertTrue(formset.is_valid())
+        formset.save()
+        self.assertEqual(UserSite.objects.count(), 0)

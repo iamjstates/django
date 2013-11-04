@@ -25,6 +25,18 @@ from django.utils.encoding import smart_text, force_text, force_bytes
 from django.utils.ipv6 import clean_ipv6_address
 from django.utils import six
 
+# Avoid "TypeError: Item in ``from list'' not a string" -- unicode_literals
+# makes these strings unicode
+__all__ = [str(x) for x in (
+    'AutoField', 'BLANK_CHOICE_DASH', 'BigIntegerField', 'BinaryField',
+    'BooleanField', 'CharField', 'CommaSeparatedIntegerField', 'DateField',
+    'DateTimeField', 'DecimalField', 'EmailField', 'Empty', 'Field',
+    'FieldDoesNotExist', 'FilePathField', 'FloatField',
+    'GenericIPAddressField', 'IPAddressField', 'IntegerField', 'NOT_PROVIDED',
+    'NullBooleanField', 'PositiveIntegerField', 'PositiveSmallIntegerField',
+    'SlugField', 'SmallIntegerField', 'TextField', 'TimeField', 'URLField',
+)]
+
 
 class Empty(object):
     pass
@@ -81,7 +93,7 @@ class Field(object):
     # creates, creation_counter is used for all user-specified fields.
     creation_counter = 0
     auto_creation_counter = -1
-    default_validators = [] # Default set of validators
+    default_validators = []  # Default set of validators
     default_error_messages = {
         'invalid_choice': _('Value %(value)r is not a valid choice.'),
         'null': _('This field cannot be null.'),

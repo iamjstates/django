@@ -13,6 +13,7 @@ from django.utils._os import upath
 from django.utils.http import is_safe_url
 from django.utils import six
 
+
 def set_language(request):
     """
     Redirect to a given url while setting the chosen language in the
@@ -98,7 +99,7 @@ js_catalog_template = r"""
   };
 
   django.ngettext = function (singular, plural, count) {
-    value = django.catalog[singular];
+    var value = django.catalog[singular];
     if (typeof(value) == 'undefined') {
       return (count == 1) ? singular : plural;
     } else {
