@@ -5,7 +5,9 @@ Regression tests for the Test Client, especially the customized assertions.
 from __future__ import unicode_literals
 
 import os
+import itertools
 
+from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.template import (TemplateSyntaxError,
     Context, Template, loader)
@@ -433,6 +435,24 @@ class AssertRedirectsTests(TestCase):
         except AssertionError as e:
             self.assertIn("abc: Response didn't redirect as expected: Response code was 200 (expected 302)", str(e))
 
+    def test_redirect_scheme(self):
+        "An assertion is raised if the response doesn't have the scheme specified in expected_url"
+
+        # Assure that original request scheme is preserved if no scheme specified in the redirect location
+        response = self.client.get('/test_client/redirect_view/', secure=True)
+        self.assertRedirects(response, 'https://testserver/test_client/get_view/')
+
+        # For all possible True/False combinations of follow and secure
+        for follow, secure in itertools.product([True, False], repeat=2):
+            # always redirects to https
+            response = self.client.get('/test_client/https_redirect_view/', follow=follow, secure=secure)
+            # no scheme to compare too, always succeeds
+            self.assertRedirects(response, '/test_client/secure_view/', status_code=301)
+            # the goal scheme is https
+            self.assertRedirects(response, 'https://testserver/test_client/secure_view/', status_code=301)
+            with self.assertRaises(AssertionError):
+                self.assertRedirects(response, 'http://testserver/test_client/secure_view/', status_code=301)
+
 
 class AssertFormErrorTests(TestCase):
     def test_unknown_form(self):
@@ -742,6 +762,11 @@ class AssertFormsetErrorTests(TestCase):
                                     **kwargs)
 
 
+class ProcessedMiddleware(object):
+    def process_request(self, request):
+        request.has_been_processed = True
+
+
 @override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',))
 class LoginTests(TestCase):
     fixtures = ['testdata']
@@ -761,6 +786,24 @@ class LoginTests(TestCase):
         # Check that assertRedirects uses the original client, not the
         # default client.
         self.assertRedirects(response, "http://testserver/test_client_regress/get_view/")
+
+    @override_settings(
+        MIDDLEWARE_CLASSES=list(settings.MIDDLEWARE_CLASSES) +
+        ['test_client_regress.tests.ProcessedMiddleware'])
+    def test_request_middleware(self):
+        "Check that the request middleware is executed on login request"
+
+        def listener(sender, signal, **kwargs):
+            request = kwargs['request']
+            self.assertTrue(hasattr(request, 'has_been_processed'))
+
+        # Unlike other Client request performing methods, login and logout don't
+        # return the response, therefore we must use signals to get it
+        user_logged_in.connect(listener)
+        try:
+            self.client.login(username='testclient', password='password')
+        finally:
+            user_logged_in.disconnect(listener)
 
 
 @override_settings(
@@ -1241,11 +1284,31 @@ class UploadedFileEncodingTest(TestCase):
 
 
 class RequestHeadersTest(TestCase):
+    fixtures = ['testdata']
+
     def test_client_headers(self):
         "A test client can receive custom headers"
         response = self.client.get("/test_client_regress/check_headers/", HTTP_X_ARG_CHECK='Testing 123')
         self.assertEqual(response.content, b"HTTP_X_ARG_CHECK: Testing 123")
         self.assertEqual(response.status_code, 200)
+
+    @override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',))
+    def test_client_login_headers(self):
+        "Test client headers are used in login"
+
+        client = Client(HTTP_HOST='different')
+
+        def listener(sender, signal, **kwargs):
+            request = kwargs['request']
+            self.assertEqual(request.get_host(), 'different')
+
+        # Unlike other Client request performing methods, login and logout don't
+        # return the response, therefore we must use signals to get it
+        user_logged_in.connect(listener)
+        try:
+            client.login(username='testclient', password='password')
+        finally:
+            user_logged_in.disconnect(listener)
 
     def test_client_headers_redirect(self):
         "Test client headers are preserved through redirects"

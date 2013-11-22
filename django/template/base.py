@@ -6,7 +6,7 @@ from importlib import import_module
 from inspect import getargspec, getcallargs
 
 from django.conf import settings
-from django.template.context import (BaseContext, Context, RequestContext,  # NOQA: imported for backwards compatability
+from django.template.context import (BaseContext, Context, RequestContext,  # NOQA: imported for backwards compatibility
     ContextPopException)
 from django.utils.itercompat import is_iterable
 from django.utils.text import (smart_split, unescape_string_literal,
@@ -121,8 +121,7 @@ class StringOrigin(Origin):
 
 
 class Template(object):
-    def __init__(self, template_string, origin=None,
-                 name='<Unknown Template>'):
+    def __init__(self, template_string, origin=None, name=None):
         try:
             template_string = force_text(template_string)
         except UnicodeDecodeError:

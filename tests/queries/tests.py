@@ -1797,6 +1797,10 @@ class Queries6Tests(TestCase):
         q1 = Tag.objects.order_by('name')
         self.assertIsNot(q1, q1.all())
 
+    def test_ticket_11320(self):
+        qs = Tag.objects.exclude(category=None).exclude(category__name='foo')
+        self.assertEqual(str(qs.query).count(' INNER JOIN '), 1)
+
 
 class RawQueriesTests(TestCase):
     def setUp(self):
@@ -3189,3 +3193,16 @@ class ValuesJoinPromotionTests(TestCase):
     def test_non_nullable_fk_not_promoted(self):
         qs = ObjectB.objects.values('objecta__name')
         self.assertTrue(' INNER JOIN ' in str(qs.query))
+
+    def test_ticket_21376(self):
+        a = ObjectA.objects.create()
+        ObjectC.objects.create(objecta=a)
+        qs = ObjectC.objects.filter(
+            Q(objecta=a) | Q(objectb__objecta=a),
+        )
+        qs = qs.filter(
+            Q(objectb=1) | Q(objecta=a),
+        )
+        self.assertEqual(qs.count(), 1)
+        tblname = connection.ops.quote_name(ObjectB._meta.db_table)
+        self.assertTrue(' LEFT OUTER JOIN %s' % tblname in str(qs.query))

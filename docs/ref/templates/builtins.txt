@@ -383,7 +383,7 @@ displayed if the given array is empty or could not be found::
     {% empty %}
         <li>Sorry, no athletes in this list.</li>
     {% endfor %}
-    <ul>
+    </ul>
 
 The above is equivalent to -- but shorter, cleaner, and possibly faster
 than -- the following::
@@ -1432,6 +1432,28 @@ then the output would be:
         {'name': 'joe', 'age': 31},
         {'name': 'zed', 'age': 19},
     ]
+
+You can also do more complicated things like::
+
+    {% for book in books|dictsort:"author.age" %}
+        * {{ book.title }} ({{ book.author.name }})
+    {% endfor %}
+
+If ``books`` is:
+
+.. code-block:: python
+
+    [
+        {'title': '1984', 'author': {'name': 'George', 'age': 45}},
+        {'title': 'Timequake', 'author': {'name': 'Kurt', 'age': 75}},
+        {'title': 'Alice', 'author': {'name': 'Lewis', 'age': 33}},
+    ]
+
+then the output would be::
+
+    * Alice (Lewis)
+    * 1984 (George)
+    * Timequake (Kurt)
 
 .. templatefilter:: dictsortreversed
 

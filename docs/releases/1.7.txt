@@ -98,6 +98,21 @@ Using a custom manager when traversing reverse relations
 It is now possible to :ref:`specify a custom manager
 <using-custom-reverse-manager>` when traversing a reverse relationship.
 
+New ``Prefetch`` object for advanced ``prefetch_related`` operations.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The new :class:`~django.db.models.Prefetch` object allows customizing
+prefetch operations.
+
+You can specify the ``QuerySet`` used to traverse a given relation
+or customize the storage location of prefetch results.
+
+This enables things like filtering prefetched relations, calling
+:meth:`~django.db.models.query.QuerySet.select_related()` from a prefetched
+relation, or prefetching the same relation multiple times with different
+querysets. See :meth:`~django.db.models.query.QuerySet.prefetch_related()`
+for more details.
+
 Admin shortcuts support time zones
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -206,6 +221,10 @@ Minor features
 * The :ref:`messages context processor <message-displaying>` now adds a
   dictionary of default levels under the name ``DEFAULT_MESSAGE_LEVELS``.
 
+* :class:`~django.contrib.messages.storage.base.Message` objects now have a
+  ``level_tag`` attribute that contains the string representation of the
+  message level.
+
 :mod:`django.contrib.redirects`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -298,6 +317,10 @@ Forms
   return ``self.cleaned_data``. If it does return a changed dictionary then
   that will still be used.
 
+* After a temporary regression in Django 1.6, it's now possible again to make
+  :class:`~django.forms.TypedChoiceField` ``coerce`` method return an arbitrary
+  value.
+
 * :attr:`SelectDateWidget.months
   <django.forms.extras.widgets.SelectDateWidget.months>` can be used to
   customize the wording of the months displayed in the select widget.
@@ -327,6 +350,15 @@ Internationalization
   still read from in 1.7. Sessions will be migrated to the new ``_language``
   key as they are written.
 
+* The :ttag:`blocktrans` now supports a ``trimmed`` option. This
+  option will remove newline characters from the beginning and the end of the
+  content of the ``{% blocktrans %}`` tag, replace any whitespace at the
+  beginning and end of a line and merge all lines into one using a space
+  character to separate them. This is quite useful for indenting the content of
+  a ``{% blocktrans %}`` tag without having the indentation characters end up
+  in the corresponding entry in the PO file, which makes the translation
+  process easier.
+
 Management Commands
 ^^^^^^^^^^^^^^^^^^^
 
@@ -343,11 +375,24 @@ Management Commands
   Django takes this information from your settings file. If you have configured
   multiple caches or multiple databases, all cache tables are created.
 
-* The :djadmin:`runserver` command now uses ``inotify`` Linux kernel signals
-  for autoreloading if ``pyinotify`` is installed.
+* The :djadmin:`runserver` command received several improvements:
 
-* The :djadmin:`runserver` command is now restarted when a translation file is
-  changed.
+  # On BSD systems, including OS X, the development server will reload
+    immediately when a file is changed. Previously, it polled the filesystem
+    for changes every second. That caused a small delay before reloads and
+    reduced battery life on laptops.
+
+  * On Linux, the same improvements are available when pyinotify_ is
+    installed.
+
+    .. _pyinotify: https://pypi.python.org/pypi/pyinotify
+
+  * In addition, the development server automatically reloads when a
+    translation file is updated, i.e. after running
+    :djadmin:`compilemessages`.
+
+  * All HTTP requests are logged to the console, including requests for static
+    files or ``favicon.ico`` that used to be filtered out.
 
 Models
 ^^^^^^
@@ -444,9 +489,17 @@ Tests
   client can't fetch externals URLs, this allows you to use ``assertRedirects``
   with redirects that aren't part of your Django app.
 
+* Correct handling of scheme when making comparisons in
+  :meth:`~django.test.SimpleTestCase.assertRedirects`.
+
 * The ``secure`` argument was added to all the request methods of
   :class:`~django.test.Client`. If ``True``, the request will be made
   through HTTPS.
+
+* Requests made with :meth:`Client.login() <django.test.Client.login>` and
+  :meth:`Client.logout() <django.test.Client.logout>` respect defaults defined
+  in :class:`~django.test.Client` instantiation and are processed through
+  middleware.
 
 Backwards incompatible changes in 1.7
 =====================================
@@ -576,6 +629,11 @@ Miscellaneous
   you relied on the default field ordering while having fields defined on both
   the current class *and* on a parent ``Form``.
 
+* The ``required`` argument of
+  :class:`~django.forms.extras.widgets.SelectDateWidget` has been removed.
+  This widget now respects the form field's ``is_required`` attribute like
+  other widgets.
+
 * :meth:`~django.db.models.query.QuerySet.select_related` now chains in the
   same way as other similar calls like ``prefetch_related``. That is,
   ``select_related('foo', 'bar')`` is equivalent to
@@ -697,3 +755,23 @@ deprecated and will be removed in Django 1.9.
 arguments into a ``REQUEST`` property on ``WSGIRequest``. To merge
 dictionaries, use ``dict.update()`` instead. The class ``MergeDict`` is
 deprecated and will be removed in Django 1.9.
+
+Language codes ``zh-cn``, ``zh-tw`` and ``fy-nl``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The currently used language codes for Simplified Chinese ``zh-cn``,
+Traditional Chinese ``zh-tw`` and (Western) Frysian ``fy-nl`` are deprecated
+and should be replaced by the language codes ``zh-hans``, ``zh-hant`` and
+``fy`` respectively. If you use these language codes, you should rename the
+locale directories and update your settings to reflect these changes. The
+deprecated language codes will be removed in Django 1.9.
+
+``django.utils.functional.memoize`` function
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The function ``memoize`` is deprecated and should be replaced by the
+``functools.lru_cache`` decorator (available from Python 3.2 onwards).
+
+Django ships a backport of this decorator for older Python versions and it's
+available at ``django.utils.lru_cache.lru_cache``. The deprecated function will
+be removed in Django 1.9.
