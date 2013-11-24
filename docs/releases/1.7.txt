@@ -269,6 +269,18 @@ Minor features
   allowing the ``published`` element to be included in the feed (which
   relies on ``pubdate``).
 
+Cache
+^^^^^
+
+* Access to caches configured in :setting:`CACHES` is now available via
+  :data:`django.core.cache.caches`. This dict-like object provides a different
+  instance per thread. It supersedes :func:`django.core.cache.get_cache` which
+  is now deprecated.
+
+* If you instanciate cache backends directly, be aware that they aren't
+  thread-safe any more, as :data:`django.core.cache.caches` now yields
+  differend instances per thread.
+
 Email
 ^^^^^
 
@@ -524,6 +536,18 @@ For apps with migrations, ``allow_migrate`` will now get passed
 without custom attributes, methods or managers. Make sure your ``allow_migrate``
 methods are only referring to fields or other items in ``model._meta``.
 
+Behavior of ``LocMemCache`` regarding pickle errors
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An inconsistency existed in previous versions of Django regarding how pickle
+errors are handled by different cache backends.
+``django.core.cache.backends.locmem.LocMemCache`` used to fail silently when
+such an error occurs, which is inconsistent with other backends and leads to
+cache-specific errors. This has been fixed in Django 1.7, see
+`Ticket #21200`_ for more details.
+
+.. _Ticket #21200: https://code.djangoproject.com/ticket/21200
+
 Passing ``None`` to ``Manager.db_manager()``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -642,6 +666,12 @@ Miscellaneous
 
 Features deprecated in 1.7
 ==========================
+
+``django.core.cache.get_cache``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:func:`django.core.cache.get_cache` has been supplanted by
+:data:`django.core.cache.caches`.
 
 ``django.utils.dictconfig``/``django.utils.importlib``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
