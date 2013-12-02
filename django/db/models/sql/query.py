@@ -430,6 +430,9 @@ class Query(object):
 
         return number
 
+    def has_filters(self):
+        return self.where or self.having
+
     def has_results(self, using):
         q = self.clone()
         if not q.distinct:
@@ -991,9 +994,9 @@ class Query(object):
                 raise FieldError("Cannot compute %s('%s'): '%s' is an aggregate" % (
                     aggregate.name, field_name, field_name))
         elif ((len(field_list) > 1) or
-            (field_list[0] not in [i.name for i in opts.fields]) or
-            self.group_by is None or
-            not is_summary):
+                (field_list[0] not in [i.name for i in opts.fields]) or
+                self.group_by is None or
+                not is_summary):
             # If:
             #   - the field descriptor has more than one part (foo__bar), or
             #   - the field descriptor is referencing an m2m/m2o field, or
@@ -1229,7 +1232,7 @@ class Query(object):
                 q_object.clone(), q_object.negated)
         # For join promotion this case is doing an AND for the added q_object
         # and existing conditions. So, any existing inner join forces the join
-        # type to remain inner. Exsting outer joins can however be demoted.
+        # type to remain inner. Existing outer joins can however be demoted.
         # (Consider case where rel_a is LOUTER and rel_a__col=1 is added - if
         # rel_a doesn't produce any rows, then the whole condition must fail.
         # So, demotion is OK.
@@ -1276,7 +1279,7 @@ class Query(object):
         single name in 'names' can generate multiple PathInfos (m2m for
         example).
 
-        'names' is the path of names to travle, 'opts' is the model Options we
+        'names' is the path of names to travel, 'opts' is the model Options we
         start the name resolving from, 'allow_many' is as for setup_joins().
 
         Returns a list of PathInfo tuples. In addition returns the final field
@@ -1903,7 +1906,7 @@ class Query(object):
         # is_nullable() is needed to the compiler stage, but that is not easy
         # to do currently.
         if ((connections[DEFAULT_DB_ALIAS].features.interprets_empty_strings_as_nulls)
-            and field.empty_strings_allowed):
+                and field.empty_strings_allowed):
             return True
         else:
             return field.null
