@@ -240,8 +240,7 @@ class ModelFormMetaclass(DeclarativeFieldsMetaclass):
     def __new__(mcs, name, bases, attrs):
         formfield_callback = attrs.pop('formfield_callback', None)
 
-        new_class = (super(ModelFormMetaclass, mcs)
-                        .__new__(mcs, name, bases, attrs))
+        new_class = super(ModelFormMetaclass, mcs).__new__(mcs, name, bases, attrs)
 
         if bases == (BaseModelForm,):
             return new_class
@@ -1174,6 +1173,12 @@ class ModelMultipleChoiceField(ModelChoiceField):
         if isinstance(self.widget, SelectMultiple) and not isinstance(self.widget, CheckboxSelectMultiple):
             msg = _('Hold down "Control", or "Command" on a Mac, to select more than one.')
             self.help_text = string_concat(self.help_text, ' ', msg)
+
+    def to_python(self, value):
+        if not value:
+            return []
+        to_py = super(ModelMultipleChoiceField, self).to_python
+        return [to_py(val) for val in value]
 
     def clean(self, value):
         if self.required and not value:

@@ -80,7 +80,7 @@ class BaseStaticFilesTestCase(object):
 
     def assertFileContains(self, filepath, text):
         self.assertIn(text, self._get_file(force_text(filepath)),
-                        "'%s' not in '%s'" % (text, filepath))
+                      "'%s' not in '%s'" % (text, filepath))
 
     def assertFileNotFound(self, filepath):
         self.assertRaises(IOError, self._get_file, filepath)
@@ -362,7 +362,8 @@ class TestCollectionNonLocalStorage(CollectionTestCase, TestNoFilesCreated):
 
 
 # we set DEBUG to False here since the template tag wouldn't work otherwise
-@override_settings(**dict(TEST_SETTINGS,
+@override_settings(**dict(
+    TEST_SETTINGS,
     STATICFILES_STORAGE='django.contrib.staticfiles.storage.CachedStaticFilesStorage',
     DEBUG=False,
 ))
@@ -569,7 +570,8 @@ class TestCollectionCachedStorage(BaseCollectionTestCase,
 
 
 # we set DEBUG to False here since the template tag wouldn't work otherwise
-@override_settings(**dict(TEST_SETTINGS,
+@override_settings(**dict(
+    TEST_SETTINGS,
     STATICFILES_STORAGE='staticfiles_tests.storage.SimpleCachedStaticFilesStorage',
     DEBUG=False,
 ))
@@ -781,8 +783,7 @@ class TestMiscFinder(TestCase):
 class TestTemplateTag(StaticFilesTestCase):
 
     def test_template_tag(self):
-        self.assertStaticRenders("does/not/exist.png",
-                                   "/static/does/not/exist.png")
+        self.assertStaticRenders("does/not/exist.png", "/static/does/not/exist.png")
         self.assertStaticRenders("testfile.txt", "/static/testfile.txt")
 
 
