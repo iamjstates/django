@@ -2,11 +2,14 @@ from importlib import import_module
 import os
 import sys
 
-from django.core.apps import app_cache
+from django.apps import apps
 from django.db.migrations.recorder import MigrationRecorder
 from django.db.migrations.graph import MigrationGraph
 from django.utils import six
 from django.conf import settings
+
+
+MIGRATIONS_MODULE_NAME = 'migrations'
 
 
 class MigrationLoader(object):
@@ -46,7 +49,8 @@ class MigrationLoader(object):
         if app_label in settings.MIGRATION_MODULES:
             return settings.MIGRATION_MODULES[app_label]
         else:
-            return '%s.migrations' % app_cache.get_app_config(app_label).name
+            app_package_name = apps.get_app_config(app_label).name
+            return '%s.%s' % (app_package_name, MIGRATIONS_MODULE_NAME)
 
     def load_disk(self):
         """
@@ -55,7 +59,9 @@ class MigrationLoader(object):
         self.disk_migrations = {}
         self.unmigrated_apps = set()
         self.migrated_apps = set()
-        for app_config in app_cache.get_app_configs(only_with_models_module=True):
+        for app_config in apps.get_app_configs():
+            if app_config.models_module is None:
+                continue
             # Get the migrations module directory
             module_name = self.migrations_module(app_config.label)
             was_loaded = module_name in sys.modules
@@ -64,7 +70,7 @@ class MigrationLoader(object):
             except ImportError as e:
                 # I hate doing this, but I don't want to squash other import errors.
                 # Might be better to try a directory check directly.
-                if "No module named" in str(e) and "migrations" in str(e):
+                if "No module named" in str(e) and MIGRATIONS_MODULE_NAME in str(e):
                     self.unmigrated_apps.add(app_config.label)
                     continue
                 raise

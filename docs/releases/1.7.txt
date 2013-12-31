@@ -47,16 +47,47 @@ but a few of the key features are:
 * A new ``makemigrations`` command provides an easy way to autodetect changes
   to your models and make migrations for them.
 
-* :data:`~django.db.models.signals.pre_syncdb` and
-  :data:`~django.db.models.signals.post_syncdb` have been renamed to
+  :data:`~django.db.models.signals.pre_syncdb` and
+  :data:`~django.db.models.signals.post_syncdb` have been replaced by
   :data:`~django.db.models.signals.pre_migrate` and
-  :data:`~django.db.models.signals.post_migrate` respectively. The
-  ``create_models``/``created_models`` argument has also been deprecated.
+  :data:`~django.db.models.signals.post_migrate` respectively. These new
+  signals have slightly different arguments. Check the documentation for
+  details.
 
 * The ``allow_syncdb`` method on database routers is now called ``allow_migrate``,
   but still performs the same function. Routers with ``allow_syncdb`` methods
   will still work, but that method name is deprecated and you should change
   it as soon as possible (nothing more than renaming is required).
+
+App-loading refactor
+~~~~~~~~~~~~~~~~~~~~
+
+Historically, Django applications were tightly linked to models. A singleton
+known as the "app cache" dealt with both installed applications and models.
+The models module was used as an identifier for applications in many APIs.
+
+As the concept of :doc:`Django applications </ref/applications>` matured, this
+code showed some shortcomings. It has been refactored into an "app registry"
+where models modules no longer have a central role and where it's possible to
+attach configuration data to applications.
+
+Improvements thus far include:
+
+* Applications can run code at startup, before Django does anything else, with
+  the :meth:`~django.apps.AppConfig.ready` method of their configuration.
+
+* It is possible to omit ``models.py`` entirely if an application doesn't
+  have any models.
+
+* Applications can be relabeled with the :attr:`~django.apps.AppConfig.label`
+  attribute of application configurations, to work around label conflicts.
+
+* The name of applications can be customized in the admin with the
+  :attr:`~django.apps.AppConfig.verbose_name` of application configurations.
+
+* Django imports all application configurations and models as soon as it
+  starts, through a deterministic and straightforward process. This should
+  make it easier to diagnose import issues such as import loops.
 
 New method on Field subclasses
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -210,6 +241,10 @@ Minor features
 
 * The default OpenLayers library version included in widgets has been updated
   from 2.11 to 2.13.
+
+* Prepared geometries now also support the ``crosses``, ``disjoint``,
+  ``overlaps``, ``touches`` and ``within`` predicates, if GEOS 3.3 or later is
+  installed.
 
 :mod:`django.contrib.messages`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -543,6 +578,13 @@ Tests
 * :meth:`~django.test.TransactionTestCase.assertNumQueries` now prints
   out the list of executed queries if the assertion fails.
 
+Validators
+^^^^^^^^^^
+
+* :class:`~django.core.validators.URLValidator` now accepts an optional
+  ``schemes`` argument which allows customization of the accepted URI schemes
+  (instead of the defaults ``http(s)`` and ``ftp(s)``).
+
 Backwards incompatible changes in 1.7
 =====================================
 
@@ -566,6 +608,95 @@ For apps with migrations, ``allow_migrate`` will now get passed
 without custom attributes, methods or managers. Make sure your ``allow_migrate``
 methods are only referring to fields or other items in ``model._meta``.
 
+App-loading changes
+~~~~~~~~~~~~~~~~~~~
+
+Start-up sequence
+^^^^^^^^^^^^^^^^^
+
+Django 1.7 loads application configurations and models as soon as it starts.
+While this behavior is more straightforward and is believed to be more robust,
+regressions cannot be ruled out. You may encounter the following exceptions:
+
+* ``RuntimeError: App registry isn't ready yet.`` This happens when importing
+  an application configuration or a models module triggers code that depends
+  on the app registry.
+
+  For example, :func:`~django.utils.translation.ugettext()` uses the app
+  registry to look up translation catalogs in applications. To translate at
+  import time, you need :func:`~django.utils.translation.ugettext_lazy()`
+  instead. (Using :func:`~django.utils.translation.ugettext()` would be a bug,
+  because the translation would happen at import time, rather than at each
+  request depending on the active language.)
+
+  Executing database queries with the ORM at import time in models modules
+  will also trigger this exception. The ORM cannot function properly until all
+  models are available.
+
+* ``ImportError: cannot import name ...`` This happens if the import sequence
+  ends up in a loop.
+
+  To eliminate such problems, you should minimize dependencies between your
+  models modules and do as little work as possible at import time. To avoid
+  executing code at import time, you can move it into a function and cache its
+  results. The code will be executed when you first need its results. This
+  concept is known as "lazy evaluation".
+
+Standalone scripts
+^^^^^^^^^^^^^^^^^^
+
+If you're using Django in a plain Python script — rather than a management
+command — and you rely on the :envvar:`DJANGO_SETTINGS_MODULE` environment
+variable, you must now explicitly initialize Django at the beginning of your
+script with::
+
+    >>> import django
+    >>> django.setup()
+
+Otherwise, you will hit ``RuntimeError: App registry isn't ready yet.``
+
+App registry consistency
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+It is no longer possible to have multiple installed applications with the same
+label. In previous versions of Django, this didn't always work correctly, but
+didn't crash outright either.
+
+If you have two apps with the same label, you should create an
+:class:`~django.apps.AppConfig` for one of them and override its
+:class:`~django.apps.AppConfig.label` there. You should then adjust your code
+wherever it references this application or its models with the old label.
+
+You should make sure that your project doesn't import models from applications
+that aren't in :setting:`INSTALLED_APPS`. Relations involving such models may
+not be created properly. Future versions of Django may forbid this entirely.
+
+Subclassing AppCommand
+^^^^^^^^^^^^^^^^^^^^^^
+
+Subclasses of :class:`~django.core.management.AppCommand` must now implement a
+:meth:`~django.core.management.AppCommand.handle_app_config` method instead of
+``handle_app()``. This method receives an :class:`~django.apps.AppConfig`
+instance instead of a models module.
+
+Introspecting applications
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Since :setting:`INSTALLED_APPS` now supports application configuration classes
+in addition to application modules, you should review code that accesses this
+setting directly and use the app registry (:attr:`django.apps.apps`) instead.
+
+The app registry has preserved some features of the old app cache. Even though
+the app cache was a private API, obsolete methods and arguments will be
+removed through a standard deprecation path, with the exception of the
+following changes that take effect immediately:
+
+* ``get_model`` raises :exc:`~exceptions.LookupError` instead of returning
+  ``None`` when no model is found.
+
+* The ``only_installed`` argument of ``get_model`` and ``get_models`` no
+  longer exists, nor does the ``seed_cache`` argument of ``get_model``.
+
 Behavior of ``LocMemCache`` regarding pickle errors
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -577,6 +708,19 @@ cache-specific errors. This has been fixed in Django 1.7, see
 `Ticket #21200`_ for more details.
 
 .. _Ticket #21200: https://code.djangoproject.com/ticket/21200
+
+Cache keys are now generated from the request's absolute URL
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Previous versions of Django generated cache keys using a request's path and
+query string but not the scheme or host. If a Django application was serving
+multiple subdomains or domains, cache keys could collide. In Django 1.7, cache
+keys vary by the absolute URL of the request including scheme, host, path, and
+query string. For example, the URL portion of a cache key is now generated from
+``http://www.example.com/path/to/?key=val`` rather than ``/path/to/?key=val``.
+The cache keys generated by Django 1.7 will be different from the keys
+generated by older versions of Django. After upgrading to Django 1.7, the first
+request to any previously cached URL will be a cache miss .
 
 Passing ``None`` to ``Manager.db_manager()``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -721,6 +865,8 @@ Miscellaneous
   ``select_related('foo', 'bar')`` is equivalent to
   ``select_related('foo').select_related('bar')``. Previously the latter would
   have been equivalent to ``select_related('bar')``.
+
+* GeoDjango dropped support for GEOS < 3.1.
 
 Features deprecated in 1.7
 ==========================
