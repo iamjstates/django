@@ -185,7 +185,6 @@ class Apps(object):
         # call get_app_config().
         model_name = model._meta.model_name
         app_models = self.all_models[app_label]
-        # Defensive check for extra safety.
         if model_name in app_models:
             raise RuntimeError(
                 "Conflicting '%s' models in application '%s': %s and %s." %
@@ -193,7 +192,7 @@ class Apps(object):
         app_models[model_name] = model
         self.clear_cache()
 
-    def has_app(self, app_name):
+    def is_installed(self, app_name):
         """
         Checks whether an application with this name exists in the registry.
 
