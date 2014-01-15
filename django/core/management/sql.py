@@ -9,6 +9,7 @@ from django.apps import apps
 from django.conf import settings
 from django.core.management.base import CommandError
 from django.db import models, router
+from django.utils import six
 
 
 def sql_create(app_config, style, connection):
@@ -198,7 +199,7 @@ def custom_sql_for_model(model, style, connection):
         sql_files.append(os.path.join(app_dir, "%s.sql" % opts.model_name))
     for sql_file in sql_files:
         if os.path.exists(sql_file):
-            with codecs.open(sql_file, 'U', encoding=settings.FILE_CHARSET) as fp:
+            with codecs.open(sql_file, 'r' if six.PY3 else 'U', encoding=settings.FILE_CHARSET) as fp:
                 # Some backends can't execute more than one SQL statement at a time,
                 # so split into separate statements.
                 output.extend(_split_statements(fp.read()))
@@ -217,7 +218,7 @@ def emit_pre_migrate_signal(create_models, verbosity, interactive, db):
             app_config=app_config,
             verbosity=verbosity,
             interactive=interactive,
-            db=db)
+            using=db)
         # For backwards-compatibility -- remove in Django 1.9.
         models.signals.pre_syncdb.send(
             sender=app_config.models_module,
@@ -240,7 +241,7 @@ def emit_post_migrate_signal(created_models, verbosity, interactive, db):
             app_config=app_config,
             verbosity=verbosity,
             interactive=interactive,
-            db=db)
+            using=db)
         # For backwards-compatibility -- remove in Django 1.9.
         models.signals.post_syncdb.send(
             sender=app_config.models_module,
