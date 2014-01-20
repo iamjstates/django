@@ -140,7 +140,7 @@ You'll see the following output on the command line:
 
 .. parsed-literal::
 
-    Validating models...
+    Performing system checks...
 
     0 errors found
     |today| - 15:50:53
@@ -435,7 +435,7 @@ look like this:
     :filename: mysite/settings.py
 
     INSTALLED_APPS = (
-        'django.contrib.admin',
+        'django.contrib.admin.apps.AdminConfig',
         'django.contrib.auth',
         'django.contrib.contenttypes',
         'django.contrib.sessions',
@@ -443,6 +443,13 @@ look like this:
         'django.contrib.staticfiles',
         'polls',
     )
+
+.. admonition:: Doesn't match what you see?
+
+    If you're seeing ``'django.contrib.admin'`` instead of
+    ``'django.contrib.admin.apps.AdminConfig'``, you're probably using a
+    version of Django that doesn't match this tutorial version.  You'll want
+    to either switch to the older tutorial or the newer Django version.
 
 Now Django knows to include the ``polls`` app. Let's run another command:
 
@@ -538,8 +545,8 @@ Note the following:
   changes.
 
 If you're interested, you can also run
-:djadmin:`python manage.py validate <validate>`; this checks for any errors in
-your models without making migrations or touching the database.
+:djadmin:`python manage.py check <check>`; this checks for any problems in
+your project without making migrations or touching the database.
 
 Now, run :djadmin:`migrate` again to create those model tables in your database:
 

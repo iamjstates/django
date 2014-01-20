@@ -93,6 +93,13 @@ Improvements thus far include:
   starts, through a deterministic and straightforward process. This should
   make it easier to diagnose import issues such as import loops.
 
+* The admin has an :class:`~django.contrib.admin.apps.AdminConfig` application
+  configuration class. When Django starts, this class takes care of calling
+  :func:`~django.contrib.admin.autodiscover()`. To use it, simply replace
+  ``'django.contrib.admin'`` in :setting:`INSTALLED_APPS` with
+  ``'django.contrib.admin.apps.AdminConfig'`` and remove
+  ``admin.autodiscover()`` from your URLconf.
+
 New method on Field subclasses
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -132,6 +139,17 @@ Using a custom manager when traversing reverse relations
 
 It is now possible to :ref:`specify a custom manager
 <using-custom-reverse-manager>` when traversing a reverse relationship.
+
+New system check framework
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We've added a new :doc:`System check framework </ref/checks>` for
+detecting common problems (like invalid models) and providing hints for
+resolving those problems. The framework is extensible so you can add your
+own checks for your own apps and libraries.
+
+To perform system checks, you use the :djadmin:`check` management command.
+This command replaces the older :djadmin:`validate` management command.
 
 New ``Prefetch`` object for advanced ``prefetch_related`` operations.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -179,6 +197,27 @@ for the following, instead of backend specific behavior.
         c.execute(...)
     finally:
         c.close()
+
+Custom lookups
+~~~~~~~~~~~~~~
+
+It is now possible to write custom lookups and transforms for the ORM.
+Custom lookups work just like Django's inbuilt lookups (e.g. ``lte``,
+``icontains``) while transforms are a new concept.
+
+The :class:`django.db.models.Lookup` class provides a way to add lookup
+operators for model fields. As an example it is possible to add ``day_lte``
+operator for ``DateFields``.
+
+The :class:`django.db.models.Transform` class allows transformations of
+database values prior to the final lookup. For example it is possible to
+write a ``year`` transform that extracts year from the field's value.
+Transforms allow for chaining. After the ``year`` transform has been added
+to ``DateField`` it is possible to filter on the transformed value, for
+example ``qs.filter(author__birthdate__year__lte=1981)``.
+
+For more information about both custom lookups and transforms refer to
+:doc:`custom lookups </ref/models/custom-lookups>` documentation.
 
 Minor features
 ~~~~~~~~~~~~~~
@@ -965,7 +1004,7 @@ considered a bug and has been addressed.
 ``syncdb``
 ~~~~~~~~~~
 
-The ``syncdb`` command has been deprecated in favour of the new ``migrate``
+The :djadmin:`syncdb` command has been deprecated in favor of the new :djadmin:`migrate`
 command. ``migrate`` takes the same arguments as ``syncdb`` used to plus a few
 more, so it's safe to just change the name you're calling and nothing else.
 
@@ -1075,3 +1114,32 @@ remove the setting from your configuration at your convenience.
 ``SplitDateTimeWidget`` support in :class:`~django.forms.DateTimeField` is
 deprecated, use ``SplitDateTimeWidget`` with
 :class:`~django.forms.SplitDateTimeField` instead.
+
+``validate``
+~~~~~~~~~~~~
+
+:djadmin:`validate` command is deprecated in favor of :djadmin:`check` command.
+
+``django.core.management.BaseCommand``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``requires_model_validation`` is deprecated in favor of a new
+``requires_system_checks`` flag. If the latter flag is missing, then the
+value of the former flag is used. Defining both ``requires_system_checks`` and
+``requires_model_validation`` results in an error.
+
+The ``check()`` method has replaced the old ``validate()`` method.
+
+``ModelAdmin.validator``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+``ModelAdmin.validator`` is deprecated in favor of new ``checks`` attribute.
+
+``django.db.backends.DatabaseValidation.validate_field``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This method is deprecated in favor of a new ``check_field`` method.
+The functionality required by ``check_field()`` is the same as that provided
+by ``validate_field()``, but the output format is different. Third-party database
+backends needing this functionality should modify their backends to provide an
+implementation of ``check_field()``.
