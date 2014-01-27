@@ -6,7 +6,7 @@ from functools import update_wrapper
 import warnings
 
 from django.apps import apps
-from django.apps.base import MODELS_MODULE_NAME
+from django.apps.config import MODELS_MODULE_NAME
 import django.db.models.manager  # NOQA: Imported to register signal handler.
 from django.conf import settings
 from django.core import checks
@@ -1054,7 +1054,7 @@ class Model(six.with_metaclass(ModelBase)):
         errors = []
         if cls._meta.swapped:
             try:
-                app_label, model_name = cls._meta.swapped.split('.')
+                apps.get_model(cls._meta.swapped)
             except ValueError:
                 errors.append(
                     checks.Error(
@@ -1064,24 +1064,22 @@ class Model(six.with_metaclass(ModelBase)):
                         id='E002',
                     )
                 )
-            else:
-                try:
-                    apps.get_model(app_label, model_name)
-                except LookupError:
-                    errors.append(
-                        checks.Error(
-                            ('The model has been swapped out for %s.%s '
-                             'which has not been installed or is abstract.') % (
-                                app_label, model_name
-                            ),
-                            hint=('Ensure that you did not misspell the model '
-                                  'name and the app name as well as the model '
-                                  'is not abstract. Does your INSTALLED_APPS '
-                                  'setting contain the "%s" app?') % app_label,
-                            obj=cls,
-                            id='E003',
-                        )
+            except LookupError:
+                app_label, model_name = cls._meta.swapped.split('.')
+                errors.append(
+                    checks.Error(
+                        ('The model has been swapped out for %s.%s '
+                         'which has not been installed or is abstract.') % (
+                            app_label, model_name
+                        ),
+                        hint=('Ensure that you did not misspell the model '
+                              'name and the app name as well as the model '
+                              'is not abstract. Does your INSTALLED_APPS '
+                              'setting contain the "%s" app?') % app_label,
+                        obj=cls,
+                        id='E003',
                     )
+                )
         return errors
 
     @classmethod

@@ -89,16 +89,13 @@ Improvements thus far include:
 * The name of applications can be customized in the admin with the
   :attr:`~django.apps.AppConfig.verbose_name` of application configurations.
 
+* The admin automatically calls :func:`~django.contrib.admin.autodiscover()`
+  when Django starts. You can consequently remove this line from your
+  URLconf.
+
 * Django imports all application configurations and models as soon as it
   starts, through a deterministic and straightforward process. This should
   make it easier to diagnose import issues such as import loops.
-
-* The admin has an :class:`~django.contrib.admin.apps.AdminConfig` application
-  configuration class. When Django starts, this class takes care of calling
-  :func:`~django.contrib.admin.autodiscover()`. To use it, simply replace
-  ``'django.contrib.admin'`` in :setting:`INSTALLED_APPS` with
-  ``'django.contrib.admin.apps.AdminConfig'`` and remove
-  ``admin.autodiscover()`` from your URLconf.
 
 New method on Field subclasses
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -698,6 +695,12 @@ regressions cannot be ruled out. You may encounter the following exceptions:
   results. The code will be executed when you first need its results. This
   concept is known as "lazy evaluation".
 
+* ``django.contrib.admin`` will now automatically perform autodiscovery of
+  ``admin`` modules in installed applications. To prevent it, change your
+  :setting:`INSTALLED_APPS` to contain
+  ``'django.contrib.admin.apps.SimpleAdminConfig'`` instead of
+  ``'django.contrib.admin'``.
+
 Standalone scripts
 ^^^^^^^^^^^^^^^^^^
 
@@ -865,7 +868,7 @@ Miscellaneous
   have a custom :class:`~django.core.files.uploadhandler.FileUploadHandler`
   that implements ``new_file()``, be sure it accepts this new parameter.
 
-* :class:`ModelFormSet<django.forms.models.BaseModelFormSet>`’s no longer
+* :class:`ModelFormSet<django.forms.models.BaseModelFormSet>`\s no longer
   delete instances when ``save(commit=False)`` is called. See
   :attr:`~django.forms.formsets.BaseFormSet.can_delete` for instructions on how
   to manually delete objects from deleted forms.
@@ -1006,6 +1009,19 @@ than simply ``myapp/models.py``, Django would look for :ref:`initial SQL data
 will search ``myapp/sql/`` as documented. The old location will continue to
 work until Django 1.9.
 
+Reorganization of ``django.contrib.sites``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``django.contrib.sites`` provides reduced functionality when it isn't in
+:setting:`INSTALLED_APPS`. The app-loading refactor adds some constraints in
+that situation. As a consequence, two objects were moved, and the old
+locations are deprecated:
+
+* :class:`~django.contrib.sites.requests.RequestSite` now lives in
+  ``django.contrib.sites.requests``.
+* :func:`~django.contrib.sites.shortcuts.get_current_site` now lives in
+  ``django.contrib.sites.shortcuts``.
+
 ``declared_fieldsets`` attribute on ``ModelAdmin``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1013,6 +1029,25 @@ work until Django 1.9.
 API, it will go through a regular deprecation path. This attribute was mostly
 used by methods that bypassed ``ModelAdmin.get_fieldsets()`` but this was
 considered a bug and has been addressed.
+
+Reorganization of ``django.contrib.contenttypes``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Since ``django.contrib.contenttypes.generic`` defined both admin and model
+related objects an import of this module could trigger unexpected side effects.
+As a consequence, its contents were split into :mod:`~django.contrib.contenttypes`
+submodules and the ``django.contrib.contenttypes.generic`` module is deprecated:
+
+* :class:`~django.contrib.contenttypes.fields.GenericForeignKey` and
+  :class:`~django.contrib.contenttypes.fields.GenericRelation` now live in
+  :mod:`~django.contrib.contenttypes.fields`.
+* :class:`~django.contrib.contenttypes.forms.BaseGenericInlineFormSet` and
+  :func:`~django.contrib.contenttypes.forms.generic_inlineformset_factory` now
+  live in :mod:`~django.contrib.contenttypes.forms`.
+* :class:`~django.contrib.contenttypes.admin.GenericInlineModelAdmin`,
+  :class:`~django.contrib.contenttypes.admin.GenericStackedInline` and
+  :class:`~django.contrib.contenttypes.admin.GenericTabularInline` now live in
+  :mod:`~django.contrib.contenttypes.admin`.
 
 ``syncdb``
 ~~~~~~~~~~
